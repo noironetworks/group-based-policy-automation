@@ -84,7 +84,8 @@ l2_policy_template = '''
         "name": "test-l2-policy",
         "description": "test L2 policy resource",
         "l3_policy_id": "l3-policy-id",
-        "shared": True
+        "shared": True,
+        "allow_broadcast": True,
       }
     }
   }
@@ -574,7 +575,8 @@ class L2PolicyTest(HeatTestCase):
                 "name": "test-l2-policy",
                 "description": "test L2 policy resource",
                 "l3_policy_id": "l3-policy-id",
-                "shared": True
+                "shared": True,
+                "allow_broadcast": True,
             }
         }).AndReturn({'l2_policy': {'id': '5678'}})
 
@@ -597,7 +599,8 @@ class L2PolicyTest(HeatTestCase):
                 "name": "test-l2-policy",
                 "description": "test L2 policy resource",
                 "l3_policy_id": "l3-policy-id",
-                "shared": True
+                "shared": True,
+                "allow_broadcast": True,
             }
         }).AndRaise(grouppolicy.NeutronClientException())
         self.m.ReplayAll()
