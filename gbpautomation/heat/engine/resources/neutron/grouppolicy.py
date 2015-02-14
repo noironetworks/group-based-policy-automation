@@ -259,9 +259,10 @@ class PolicyTargetGroup(gbpresource.GBPResource):
 class L2Policy(gbpresource.GBPResource):
 
     PROPERTIES = (
-        TENANT_ID, NAME, DESCRIPTION, L3_POLICY_ID, SHARED
+        TENANT_ID, NAME, DESCRIPTION, L3_POLICY_ID, SHARED, ALLOW_BROADCAST
     ) = (
-        'tenant_id', 'name', 'description', 'l3_policy_id', 'shared'
+        'tenant_id', 'name', 'description', 'l3_policy_id', 'shared',
+        'allow_broadcast'
     )
 
     properties_schema = {
@@ -289,6 +290,11 @@ class L2Policy(gbpresource.GBPResource):
             properties.Schema.BOOLEAN,
             _('Shared.'),
             update_allowed=True, required=True
+        ),
+        ALLOW_BROADCAST: properties.Schema(
+            properties.Schema.BOOLEAN,
+            _('Allow Broadcast.'),
+            update_allowed=True, default=False
         )
     }
 
