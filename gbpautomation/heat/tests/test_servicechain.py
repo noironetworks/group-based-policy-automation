@@ -33,6 +33,7 @@ servicechain_node_template = '''
       "Properties": {
         "name": "test-sc-node",
         "description": "test service chain node resource",
+        "shared": True,
         "service_type": "TAP",
         "config": "{'name': 'sc_node_config'}"
       }
@@ -52,6 +53,7 @@ servicechain_spec_template = '''
       "Properties": {
         "name": "test-sc-spec",
         "description": "test service chain spec resource",
+        "shared": True,
         "nodes": ["1234", "7890"]
       }
     }
@@ -76,6 +78,7 @@ class ServiceChainNodeTest(HeatTestCase):
                 "name": "test-sc-node",
                 "description": "test service chain node resource",
                 "service_type": "TAP",
+                "shared": True,
                 "config": "{'name': 'sc_node_config'}"
             }
         }).AndReturn({'servicechain_node': {'id': '5678'}})
@@ -99,6 +102,7 @@ class ServiceChainNodeTest(HeatTestCase):
                 "name": "test-sc-node",
                 "description": "test service chain node resource",
                 "service_type": "TAP",
+                "shared": True,
                 "config": "{'name': 'sc_node_config'}"
             }
         }).AndRaise(servicechain.NeutronClientException())
@@ -185,6 +189,7 @@ class ServiceChainSpecTest(HeatTestCase):
             "servicechain_spec": {
                 "name": "test-sc-spec",
                 "description": "test service chain spec resource",
+                "shared": True,
                 "nodes": ["1234", "7890"]
             }
         }).AndReturn({'servicechain_spec': {'id': '5678'}})
@@ -207,6 +212,7 @@ class ServiceChainSpecTest(HeatTestCase):
             'servicechain_spec': {
                 "name": "test-sc-spec",
                 "description": "test service chain spec resource",
+                "shared": True,
                 "nodes": ["1234", "7890"]
             }
         }).AndRaise(servicechain.NeutronClientException())
