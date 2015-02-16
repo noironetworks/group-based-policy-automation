@@ -22,9 +22,9 @@ from heat.engine import properties
 class ServiceChainNode(gbpresource.GBPResource):
 
     PROPERTIES = (
-        TENANT_ID, NAME, DESCRIPTION, SERVICE_TYPE, CONFIG
+        TENANT_ID, NAME, DESCRIPTION, SERVICE_TYPE, CONFIG, SHARED
     ) = (
-        'tenant_id', 'name', 'description', 'service_type', 'config'
+        'tenant_id', 'name', 'description', 'service_type', 'config', 'shared'
     )
 
     properties_schema = {
@@ -53,6 +53,11 @@ class ServiceChainNode(gbpresource.GBPResource):
             _('Configuration of the service chain node.'),
             required=True,
             update_allowed=False
+        ),
+        SHARED: properties.Schema(
+            properties.Schema.BOOLEAN,
+            _('Shared.'),
+            update_allowed=True, required=True
         )
     }
 
@@ -95,9 +100,9 @@ class ServiceChainNode(gbpresource.GBPResource):
 class ServiceChainSpec(gbpresource.GBPResource):
 
     PROPERTIES = (
-        TENANT_ID, NAME, DESCRIPTION, NODES
+        TENANT_ID, NAME, DESCRIPTION, NODES, SHARED
     ) = (
-        'tenant_id', 'name', 'description', 'nodes'
+        'tenant_id', 'name', 'description', 'nodes', 'shared'
     )
 
     properties_schema = {
@@ -120,6 +125,11 @@ class ServiceChainSpec(gbpresource.GBPResource):
             _('Nodes in the service chain spec.'),
             required=True,
             update_allowed=True
+        ),
+        SHARED: properties.Schema(
+            properties.Schema.BOOLEAN,
+            _('Shared.'),
+            update_allowed=True, required=True
         )
     }
 
