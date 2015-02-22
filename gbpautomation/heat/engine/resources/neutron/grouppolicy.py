@@ -14,6 +14,7 @@
 #    under the License.
 
 from gbpautomation.heat.engine.resources.neutron import gbpresource
+from neutronclient.neutron import v2_0 as neutronV20
 from neutronclient.common.exceptions import NeutronClientException
 
 from heat.engine import attributes
@@ -30,9 +31,9 @@ class PolicyTarget(gbpresource.GBPResource):
     )
 
     ATTRIBUTES = (
-        PORT_ID
+        PORT_ID, FIXED_IPS,
     ) = (
-        'port_id'
+        'port_id', 'fixed_ips',
     )
 
     properties_schema = {
@@ -61,7 +62,10 @@ class PolicyTarget(gbpresource.GBPResource):
     attributes_schema = {
         PORT_ID: attributes.Schema(
             _("Neutron port id of this policy target")
-        )
+        ),
+        FIXED_IPS: attributes.Schema(
+            _("IP address of the port associated with this policy target")
+        ),
     }
 
     def _show_resource(self):
@@ -87,6 +91,10 @@ class PolicyTarget(gbpresource.GBPResource):
         pt_id = self.resource_id
         if name == 'port_id':
             return client.show_policy_target(pt_id)['policy_target']['port_id']
+        if name == 'fixed_ips':
+            port_id = client.show_policy_target(pt_id)['policy_target']['port_id']
+            port = self.client('neutron').show_port(port_id)['port']
+            return port['fixed_ips']
         return super(PolicyTarget, self)._resolve_attribute(name)
 
     def handle_delete(self):
