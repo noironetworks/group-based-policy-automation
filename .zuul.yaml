@@ -1,0 +1,21 @@
+- project:
+    name: x/group-based-policy-automation
+    templates:
+      - openstack-python-jobs
+      - publish-to-pypi
+    check:
+      jobs:
+        - openstack-tox-pep8:
+            nodeset: ubuntu-xenial
+        - openstack-tox-py27:
+            nodeset: ubuntu-xenial
+        - openstack-tox-py35:
+            nodeset: ubuntu-xenial
+    gate:
+      jobs:
+        - openstack-tox-pep8:
+            nodeset: ubuntu-xenial
+        - openstack-tox-py27:
+            nodeset: ubuntu-xenial
+        - openstack-tox-py35:
+            nodeset: ubuntu-xenial
