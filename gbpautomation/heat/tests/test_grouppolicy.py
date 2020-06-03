@@ -11,6 +11,7 @@
 #    under the License.
 
 import copy
+import mock
 import six
 
 from gbpautomation.heat.engine.resources import grouppolicy
@@ -385,24 +386,43 @@ class ApplicationPolicyGroupTest(HeatTestCase):
 
     def setUp(self):
         super(ApplicationPolicyGroupTest, self).setUp()
-        self.m.StubOutWithMock(gbpclient.Client,
-                               'create_application_policy_group')
-        self.m.StubOutWithMock(gbpclient.Client,
-                               'delete_application_policy_group')
-        self.m.StubOutWithMock(gbpclient.Client,
-                               'show_application_policy_group')
-        self.m.StubOutWithMock(gbpclient.Client,
-                               'update_application_policy_group')
+        self.mock_create = mock.patch(
+            'gbpclient.v2_0.client.Client.create_application_policy_group')
+        self.mock_delete = mock.patch(
+            'gbpclient.v2_0.client.Client.delete_application_policy_group')
+        self.mock_show = mock.patch(
+            'gbpclient.v2_0.client.Client.show_application_policy_group')
+        self.mock_update = mock.patch(
+            'gbpclient.v2_0.client.Client.update_application_policy_group')
+        self.mock_create.start()
+        self.mock_delete.start()
+        self.mock_show.start()
+        self.mock_update.start()
         self.stub_keystoneclient()
 
+    def tearDown(self):
+        self.mock_create.stop()
+        self.mock_delete.stop()
+        self.mock_show.stop()
+        self.mock_update.stop()
+        super(ApplicationPolicyGroupTest, self).tearDown()
+
     def create_application_policy_group(self):
-        gbpclient.Client.create_application_policy_group({
+        call_dict = {
             'application_policy_group': {
                 "name": "test-application-policy-group",
                 "description": "test APG resource",
                 "shared": True
             }
-        }).AndReturn({'application_policy_group': {'id': '5678'}})
+        }
+        tdict = {'application_policy_group': {'id': '5678'}}
+        gbpclient.Client.create_application_policy_group.return_value = tdict
+
+        ret_val = gbpclient.Client.create_application_policy_group(call_dict)
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
+        self.assertEqual(tdict, ret_val)
 
         snippet = template_format.parse(application_policy_group_template)
         self.stack = utils.parse_stack(snippet)
@@ -413,20 +433,19 @@ class ApplicationPolicyGroupTest(HeatTestCase):
 
     def test_create(self):
         rsrc = self.create_application_policy_group()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         self.assertEqual((rsrc.CREATE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
 
     def test_create_failed(self):
-        gbpclient.Client.create_application_policy_group({
+        call_dict = {
             'application_policy_group': {
                 "name": "test-application-policy-group",
                 "description": "test APG resource",
                 "shared": True
             }
-        }).AndRaise(grouppolicy.NeutronClientException())
-        self.m.ReplayAll()
+        }
+        exc = grouppolicy.NeutronClientException()
+        gbpclient.Client.create_application_policy_group.side_effect = exc
 
         snippet = template_format.parse(application_policy_group_template)
         self.stack = utils.parse_stack(snippet)
@@ -442,37 +461,43 @@ class ApplicationPolicyGroupTest(HeatTestCase):
             'An unknown exception occurred.',
             six.text_type(error))
         self.assertEqual((rsrc.CREATE, rsrc.FAILED), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
 
     def test_delete(self):
         gbpclient.Client.delete_application_policy_group('5678')
-        gbpclient.Client.show_application_policy_group('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=404))
+        exc = grouppolicy.NeutronClientException(status_code=404)
+        gbpclient.Client.show_application_policy_group.side_effect = exc
 
         rsrc = self.create_application_policy_group()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         scheduler.TaskRunner(rsrc.delete)()
         self.assertEqual((rsrc.DELETE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_show = self.mock_show.get_original()[0]
+        _mocked_show.assert_has_calls([expected])
 
     def test_delete_already_gone(self):
-        gbpclient.Client.delete_application_policy_group('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=404))
+        exc = grouppolicy.NeutronClientException(status_code=404)
+        gbpclient.Client.delete_application_policy_group.side_effect = exc
 
         rsrc = self.create_application_policy_group()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         scheduler.TaskRunner(rsrc.delete)()
         self.assertEqual((rsrc.DELETE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_delete = self.mock_delete.get_original()[0]
+        _mocked_delete.assert_has_calls([expected])
 
     def test_delete_failed(self):
-        gbpclient.Client.delete_application_policy_group('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=400))
+        exc = grouppolicy.NeutronClientException(status_code=400)
+        gbpclient.Client.delete_application_policy_group.side_effect = exc
 
         rsrc = self.create_application_policy_group()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         error = self.assertRaises(exception.ResourceFailure,
                                   scheduler.TaskRunner(rsrc.delete))
@@ -481,34 +506,52 @@ class ApplicationPolicyGroupTest(HeatTestCase):
             'An unknown exception occurred.',
             six.text_type(error))
         self.assertEqual((rsrc.DELETE, rsrc.FAILED), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_delete = self.mock_delete.get_original()[0]
+        _mocked_delete.assert_has_calls([expected])
 
     def test_update(self):
         rsrc = self.create_application_policy_group()
-        gbpclient.Client.update_application_policy_group(
-            '5678', {'application_policy_group': {'name': 'new name'}})
-        self.m.ReplayAll()
+        call_dict = {'application_policy_group': {'name': 'new name'}}
         scheduler.TaskRunner(rsrc.create)()
 
         update_template = copy.deepcopy(rsrc.t)
         update_template._properties['name'] = 'new name'
         scheduler.TaskRunner(rsrc.update, update_template)()
 
-        self.m.VerifyAll()
+        expected = mock.call('5678', call_dict)
+        _mocked_update = self.mock_update.get_original()[0]
+        _mocked_update.assert_has_calls([expected])
 
 
 class PolicyTargetTest(HeatTestCase):
 
     def setUp(self):
         super(PolicyTargetTest, self).setUp()
-        self.m.StubOutWithMock(gbpclient.Client, 'create_policy_target')
-        self.m.StubOutWithMock(gbpclient.Client, 'delete_policy_target')
-        self.m.StubOutWithMock(gbpclient.Client, 'show_policy_target')
-        self.m.StubOutWithMock(gbpclient.Client, 'update_policy_target')
+        self.mock_create = mock.patch(
+            'gbpclient.v2_0.client.Client.create_policy_target')
+        self.mock_delete = mock.patch(
+            'gbpclient.v2_0.client.Client.delete_policy_target')
+        self.mock_show = mock.patch(
+            'gbpclient.v2_0.client.Client.show_policy_target')
+        self.mock_update = mock.patch(
+            'gbpclient.v2_0.client.Client.update_policy_target')
+        self.mock_create.start()
+        self.mock_delete.start()
+        self.mock_show.start()
+        self.mock_update.start()
         self.stub_keystoneclient()
 
+    def tearDown(self):
+        self.mock_create.stop()
+        self.mock_delete.stop()
+        self.mock_show.stop()
+        self.mock_update.stop()
+        super(PolicyTargetTest, self).tearDown()
+
     def create_policy_target(self):
-        gbpclient.Client.create_policy_target({
+        call_dict = {
             'policy_target': {
                 'name': 'test-policy-target',
                 'policy_target_group_id': 'ptg-id',
@@ -518,7 +561,15 @@ class PolicyTargetTest(HeatTestCase):
                     {'subnet_id': u'test-subnet', 'ip_address': u'10.0.3.21'}
                 ],
             }
-        }).AndReturn({'policy_target': {'id': '5678'}})
+        }
+        tdict = {'policy_target': {'id': '5678'}}
+        gbpclient.Client.create_policy_target.return_value = tdict
+
+        ret_val = gbpclient.Client.create_policy_target(call_dict)
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
+        self.assertEqual(tdict, ret_val)
 
         snippet = template_format.parse(policy_target_template)
         self.stack = utils.parse_stack(snippet)
@@ -528,19 +579,25 @@ class PolicyTargetTest(HeatTestCase):
 
     def test_create(self):
         rsrc = self.create_policy_target()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         self.assertEqual((rsrc.CREATE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
 
     def create_policy_target_no_port_no_fixed_ip(self):
-        gbpclient.Client.create_policy_target({
+        call_dict = {
             'policy_target': {
                 'name': 'test-policy-target',
                 'policy_target_group_id': 'ptg-id',
                 "description": "test policy target resource",
             }
-        }).AndReturn({'policy_target': {'id': '5678'}})
+        }
+        tdict = {'policy_target': {'id': '5678'}}
+        gbpclient.Client.create_policy_target.return_value = tdict
+
+        ret_val = gbpclient.Client.create_policy_target(call_dict)
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
+        self.assertEqual(tdict, ret_val)
 
         snippet = template_format.parse(
             policy_target_no_port_no_fixed_ip_template)
@@ -551,13 +608,11 @@ class PolicyTargetTest(HeatTestCase):
 
     def test_create_no_port_no_fixed_ip(self):
         rsrc = self.create_policy_target_no_port_no_fixed_ip()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         self.assertEqual((rsrc.CREATE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
 
     def test_create_failed(self):
-        gbpclient.Client.create_policy_target({
+        call_dict = {
             'policy_target': {
                 'name': 'test-policy-target',
                 'policy_target_group_id': 'ptg-id',
@@ -567,8 +622,9 @@ class PolicyTargetTest(HeatTestCase):
                     {'subnet_id': u'test-subnet', 'ip_address': u'10.0.3.21'}
                 ],
             }
-        }).AndRaise(grouppolicy.NeutronClientException())
-        self.m.ReplayAll()
+        }
+        exc = grouppolicy.NeutronClientException()
+        gbpclient.Client.create_policy_target.side_effect = exc
 
         snippet = template_format.parse(policy_target_template)
         self.stack = utils.parse_stack(snippet)
@@ -583,37 +639,42 @@ class PolicyTargetTest(HeatTestCase):
             'An unknown exception occurred.',
             six.text_type(error))
         self.assertEqual((rsrc.CREATE, rsrc.FAILED), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
 
     def test_delete(self):
-        gbpclient.Client.delete_policy_target('5678')
-        gbpclient.Client.show_policy_target('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=404))
+        exc = grouppolicy.NeutronClientException(status_code=404)
+        gbpclient.Client.show_policy_target.side_effect = exc
 
         rsrc = self.create_policy_target()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         scheduler.TaskRunner(rsrc.delete)()
         self.assertEqual((rsrc.DELETE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_show = self.mock_show.get_original()[0]
+        _mocked_show.assert_has_calls([expected])
 
     def test_delete_already_gone(self):
-        gbpclient.Client.delete_policy_target('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=404))
+        exc = grouppolicy.NeutronClientException(status_code=404)
+        gbpclient.Client.delete_policy_target.side_effect = exc
 
         rsrc = self.create_policy_target()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         scheduler.TaskRunner(rsrc.delete)()
         self.assertEqual((rsrc.DELETE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_delete = self.mock_delete.get_original()[0]
+        _mocked_delete.assert_has_calls([expected])
 
     def test_delete_failed(self):
-        gbpclient.Client.delete_policy_target('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=400))
+        exc = grouppolicy.NeutronClientException(status_code=400)
+        gbpclient.Client.delete_policy_target.side_effect = exc
 
         rsrc = self.create_policy_target()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         error = self.assertRaises(exception.ResourceFailure,
                                   scheduler.TaskRunner(rsrc.delete))
@@ -622,35 +683,36 @@ class PolicyTargetTest(HeatTestCase):
             'An unknown exception occurred.',
             six.text_type(error))
         self.assertEqual((rsrc.DELETE, rsrc.FAILED), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_delete = self.mock_delete.get_original()[0]
+        _mocked_delete.assert_has_calls([expected])
 
     def test_attribute(self):
         rsrc = self.create_policy_target()
-        gbpclient.Client.show_policy_target('5678').MultipleTimes(
-        ).AndReturn(
-            {'policy_target': {'port_id': '1234'}})
-        self.m.ReplayAll()
+        tdict = {'policy_target': {'port_id': '1234'}}
+        gbpclient.Client.show_policy_target.return_value = tdict
         scheduler.TaskRunner(rsrc.create)()
         self.assertEqual('1234', rsrc.FnGetAtt('port_id'))
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_show = self.mock_show.get_original()[0]
+        _mocked_show.assert_has_calls([expected])
 
     def test_attribute_failed(self):
         rsrc = self.create_policy_target()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         error = self.assertRaises(exception.InvalidTemplateAttribute,
                                   rsrc.FnGetAtt, 'l2_policy_id')
         self.assertEqual(
             'The Referenced Attribute (policy_target l2_policy_id) is '
             'incorrect.', six.text_type(error))
-        self.m.VerifyAll()
 
     def test_update(self):
         rsrc = self.create_policy_target()
-        gbpclient.Client.update_policy_target(
-            '5678', {'policy_target': {'policy_target_group_id':
-                                       'ptg_id_update'}})
-        self.m.ReplayAll()
+        call_dict = {
+            'policy_target': {
+                'policy_target_group_id': 'ptg_id_update'}}
         scheduler.TaskRunner(rsrc.create)()
 
         update_template = copy.deepcopy(rsrc.t)
@@ -658,21 +720,38 @@ class PolicyTargetTest(HeatTestCase):
             'ptg_id_update')
         scheduler.TaskRunner(rsrc.update, update_template)()
 
-        self.m.VerifyAll()
+        expected = mock.call('5678', call_dict)
+        _mocked_update = self.mock_update.get_original()[0]
+        _mocked_update.assert_has_calls([expected])
 
 
 class PolicyTargetGroupTest(HeatTestCase):
 
     def setUp(self):
         super(PolicyTargetGroupTest, self).setUp()
-        self.m.StubOutWithMock(gbpclient.Client, 'create_policy_target_group')
-        self.m.StubOutWithMock(gbpclient.Client, 'delete_policy_target_group')
-        self.m.StubOutWithMock(gbpclient.Client, 'show_policy_target_group')
-        self.m.StubOutWithMock(gbpclient.Client, 'update_policy_target_group')
+        self.mock_create = mock.patch(
+            'gbpclient.v2_0.client.Client.create_policy_target_group')
+        self.mock_delete = mock.patch(
+            'gbpclient.v2_0.client.Client.delete_policy_target_group')
+        self.mock_show = mock.patch(
+            'gbpclient.v2_0.client.Client.show_policy_target_group')
+        self.mock_update = mock.patch(
+            'gbpclient.v2_0.client.Client.update_policy_target_group')
+        self.mock_create.start()
+        self.mock_delete.start()
+        self.mock_show.start()
+        self.mock_update.start()
         self.stub_keystoneclient()
 
+    def tearDown(self):
+        self.mock_create.stop()
+        self.mock_delete.stop()
+        self.mock_show.stop()
+        self.mock_update.stop()
+        super(PolicyTargetGroupTest, self).tearDown()
+
     def create_policy_target_group(self):
-        gbpclient.Client.create_policy_target_group({
+        call_dict = {
             "policy_target_group": {
                 "name": "test-policy-target-group",
                 "description": "test policy target group resource",
@@ -688,7 +767,15 @@ class PolicyTargetGroupTest(HeatTestCase):
                 "shared": True,
                 "intra_ptg_allow": False
             }
-        }).AndReturn({'policy_target_group': {'id': '5678'}})
+        }
+        tdict = {'policy_target_group': {'id': '5678'}}
+        gbpclient.Client.create_policy_target_group.return_value = tdict
+
+        ret_val = gbpclient.Client.create_policy_target_group(call_dict)
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
+        self.assertEqual(tdict, ret_val)
 
         snippet = template_format.parse(policy_target_group_template)
         self.stack = utils.parse_stack(snippet)
@@ -698,7 +785,7 @@ class PolicyTargetGroupTest(HeatTestCase):
             self.stack)
 
     def create_policy_target_group_with_apg(self):
-        gbpclient.Client.create_policy_target_group({
+        call_dict = {
             "policy_target_group": {
                 "name": "test-policy-target-group",
                 "description": "test policy target group resource",
@@ -715,7 +802,15 @@ class PolicyTargetGroupTest(HeatTestCase):
                 "shared": True,
                 "intra_ptg_allow": False
             }
-        }).AndReturn({'policy_target_group': {'id': '5678'}})
+        }
+        tdict = {'policy_target_group': {'id': '5678'}}
+        gbpclient.Client.create_policy_target_group.return_value = tdict
+
+        ret_val = gbpclient.Client.create_policy_target_group(call_dict)
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
+        self.assertEqual(tdict, ret_val)
 
         snippet = template_format.parse(policy_target_group_with_apg_template)
         self.stack = utils.parse_stack(snippet)
@@ -726,20 +821,16 @@ class PolicyTargetGroupTest(HeatTestCase):
 
     def test_create(self):
         rsrc = self.create_policy_target_group()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         self.assertEqual((rsrc.CREATE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
 
     def test_create_with_apg(self):
         rsrc = self.create_policy_target_group_with_apg()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         self.assertEqual((rsrc.CREATE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
 
     def test_create_failed(self):
-        gbpclient.Client.create_policy_target_group({
+        call_dict = {
             "policy_target_group": {
                 "name": "test-policy-target-group",
                 "description": "test policy target group resource",
@@ -755,8 +846,9 @@ class PolicyTargetGroupTest(HeatTestCase):
                 "shared": True,
                 "intra_ptg_allow": False
             }
-        }).AndRaise(grouppolicy.NeutronClientException())
-        self.m.ReplayAll()
+        }
+        exc = grouppolicy.NeutronClientException()
+        gbpclient.Client.create_policy_target_group.side_effect = exc
 
         snippet = template_format.parse(policy_target_group_template)
         self.stack = utils.parse_stack(snippet)
@@ -772,37 +864,42 @@ class PolicyTargetGroupTest(HeatTestCase):
             'An unknown exception occurred.',
             six.text_type(error))
         self.assertEqual((rsrc.CREATE, rsrc.FAILED), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
 
     def test_delete(self):
-        gbpclient.Client.delete_policy_target_group('5678')
-        gbpclient.Client.show_policy_target_group('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=404))
+        exc = grouppolicy.NeutronClientException(status_code=404)
+        gbpclient.Client.show_policy_target_group.side_effect = exc
 
         rsrc = self.create_policy_target_group()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         scheduler.TaskRunner(rsrc.delete)()
         self.assertEqual((rsrc.DELETE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_show = self.mock_show.get_original()[0]
+        _mocked_show.assert_has_calls([expected])
 
     def test_delete_already_gone(self):
-        gbpclient.Client.delete_policy_target_group('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=404))
+        exc = grouppolicy.NeutronClientException(status_code=404)
+        gbpclient.Client.delete_policy_target_group.side_effect = exc
 
         rsrc = self.create_policy_target_group()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         scheduler.TaskRunner(rsrc.delete)()
         self.assertEqual((rsrc.DELETE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_delete = self.mock_delete.get_original()[0]
+        _mocked_delete.assert_has_calls([expected])
 
     def test_delete_failed(self):
-        gbpclient.Client.delete_policy_target_group('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=400))
+        exc = grouppolicy.NeutronClientException(status_code=400)
+        gbpclient.Client.delete_policy_target_group.side_effect = exc
 
         rsrc = self.create_policy_target_group()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         error = self.assertRaises(exception.ResourceFailure,
                                   scheduler.TaskRunner(rsrc.delete))
@@ -811,12 +908,15 @@ class PolicyTargetGroupTest(HeatTestCase):
             'An unknown exception occurred.',
             six.text_type(error))
         self.assertEqual((rsrc.DELETE, rsrc.FAILED), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_delete = self.mock_delete.get_original()[0]
+        _mocked_delete.assert_has_calls([expected])
 
     def test_update(self):
         rsrc = self.create_policy_target_group()
-        gbpclient.Client.update_policy_target_group(
-            '5678', {'policy_target_group': {
+        call_dict = {
+            'policy_target_group': {
                 'l2_policy_id': 'l2_id_update',
                 'provided_policy_rule_sets': {
                     'policy_rule_set1': 'scope1',
@@ -829,8 +929,8 @@ class PolicyTargetGroupTest(HeatTestCase):
                     'policy_rule_set6': 'scope6'
                 },
                 'intra_ptg_allow': True
-            }})
-        self.m.ReplayAll()
+            }
+        }
         scheduler.TaskRunner(rsrc.create)()
 
         update_template = copy.deepcopy(rsrc.t)
@@ -854,21 +954,38 @@ class PolicyTargetGroupTest(HeatTestCase):
         update_template._properties['intra_ptg_allow'] = True
         scheduler.TaskRunner(rsrc.update, update_template)()
 
-        self.m.VerifyAll()
+        expected = mock.call('5678', call_dict)
+        _mocked_update = self.mock_update.get_original()[0]
+        _mocked_update.assert_has_calls([expected])
 
 
 class L2PolicyTest(HeatTestCase):
 
     def setUp(self):
         super(L2PolicyTest, self).setUp()
-        self.m.StubOutWithMock(gbpclient.Client, 'create_l2_policy')
-        self.m.StubOutWithMock(gbpclient.Client, 'delete_l2_policy')
-        self.m.StubOutWithMock(gbpclient.Client, 'show_l2_policy')
-        self.m.StubOutWithMock(gbpclient.Client, 'update_l2_policy')
+        self.mock_create = mock.patch(
+            'gbpclient.v2_0.client.Client.create_l2_policy')
+        self.mock_delete = mock.patch(
+            'gbpclient.v2_0.client.Client.delete_l2_policy')
+        self.mock_show = mock.patch(
+            'gbpclient.v2_0.client.Client.show_l2_policy')
+        self.mock_update = mock.patch(
+            'gbpclient.v2_0.client.Client.update_l2_policy')
+        self.mock_create.start()
+        self.mock_delete.start()
+        self.mock_show.start()
+        self.mock_update.start()
         self.stub_keystoneclient()
 
+    def tearDown(self):
+        self.mock_create.stop()
+        self.mock_delete.stop()
+        self.mock_show.stop()
+        self.mock_update.stop()
+        super(L2PolicyTest, self).tearDown()
+
     def create_l2_policy(self):
-        gbpclient.Client.create_l2_policy({
+        call_dict = {
             'l2_policy': {
                 "name": "test-l2-policy",
                 "description": "test L2 policy resource",
@@ -876,7 +993,15 @@ class L2PolicyTest(HeatTestCase):
                 "shared": True,
                 "reuse_bd": "other-l2p",
             }
-        }).AndReturn({'l2_policy': {'id': '5678'}})
+        }
+        tdict = {'l2_policy': {'id': '5678'}}
+        gbpclient.Client.create_l2_policy.return_value = tdict
+
+        ret_val = gbpclient.Client.create_l2_policy(call_dict)
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
+        self.assertEqual(tdict, ret_val)
 
         snippet = template_format.parse(l2_policy_template)
         self.stack = utils.parse_stack(snippet)
@@ -886,13 +1011,11 @@ class L2PolicyTest(HeatTestCase):
 
     def test_create(self):
         rsrc = self.create_l2_policy()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         self.assertEqual((rsrc.CREATE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
 
     def test_create_failed(self):
-        gbpclient.Client.create_l2_policy({
+        call_dict = {
             'l2_policy': {
                 "name": "test-l2-policy",
                 "description": "test L2 policy resource",
@@ -900,8 +1023,9 @@ class L2PolicyTest(HeatTestCase):
                 "shared": True,
                 "reuse_bd": "other-l2p",
             }
-        }).AndRaise(grouppolicy.NeutronClientException())
-        self.m.ReplayAll()
+        }
+        exc = grouppolicy.NeutronClientException()
+        gbpclient.Client.create_l2_policy.side_effect = exc
 
         snippet = template_format.parse(l2_policy_template)
         self.stack = utils.parse_stack(snippet)
@@ -916,37 +1040,42 @@ class L2PolicyTest(HeatTestCase):
             'An unknown exception occurred.',
             six.text_type(error))
         self.assertEqual((rsrc.CREATE, rsrc.FAILED), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
 
     def test_delete(self):
-        gbpclient.Client.delete_l2_policy('5678')
-        gbpclient.Client.show_l2_policy('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=404))
+        exc = grouppolicy.NeutronClientException(status_code=404)
+        gbpclient.Client.show_l2_policy.side_effect = exc
 
         rsrc = self.create_l2_policy()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         scheduler.TaskRunner(rsrc.delete)()
         self.assertEqual((rsrc.DELETE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_show = self.mock_show.get_original()[0]
+        _mocked_show.assert_has_calls([expected])
 
     def test_delete_already_gone(self):
-        gbpclient.Client.delete_l2_policy('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=404))
+        exc = grouppolicy.NeutronClientException(status_code=404)
+        gbpclient.Client.delete_l2_policy.side_effect = exc
 
         rsrc = self.create_l2_policy()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         scheduler.TaskRunner(rsrc.delete)()
         self.assertEqual((rsrc.DELETE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_delete = self.mock_delete.get_original()[0]
+        _mocked_delete.assert_has_calls([expected])
 
     def test_delete_failed(self):
-        gbpclient.Client.delete_l2_policy('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=400))
+        exc = grouppolicy.NeutronClientException(status_code=400)
+        gbpclient.Client.delete_l2_policy.side_effect = exc
 
         rsrc = self.create_l2_policy()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         error = self.assertRaises(exception.ResourceFailure,
                                   scheduler.TaskRunner(rsrc.delete))
@@ -955,34 +1084,52 @@ class L2PolicyTest(HeatTestCase):
             'An unknown exception occurred.',
             six.text_type(error))
         self.assertEqual((rsrc.DELETE, rsrc.FAILED), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_delete = self.mock_delete.get_original()[0]
+        _mocked_delete.assert_has_calls([expected])
 
     def test_update(self):
         rsrc = self.create_l2_policy()
-        gbpclient.Client.update_l2_policy(
-            '5678', {'l2_policy': {'l3_policy_id': 'l3_id_update'}})
-        self.m.ReplayAll()
+        call_dict = {'l2_policy': {'l3_policy_id': 'l3_id_update'}}
         scheduler.TaskRunner(rsrc.create)()
 
         update_template = copy.deepcopy(rsrc.t)
         update_template._properties['l3_policy_id'] = 'l3_id_update'
         scheduler.TaskRunner(rsrc.update, update_template)()
 
-        self.m.VerifyAll()
+        expected = mock.call('5678', call_dict)
+        _mocked_update = self.mock_update.get_original()[0]
+        _mocked_update.assert_has_calls([expected])
 
 
 class L3PolicyTest(HeatTestCase):
 
     def setUp(self):
         super(L3PolicyTest, self).setUp()
-        self.m.StubOutWithMock(gbpclient.Client, 'create_l3_policy')
-        self.m.StubOutWithMock(gbpclient.Client, 'delete_l3_policy')
-        self.m.StubOutWithMock(gbpclient.Client, 'show_l3_policy')
-        self.m.StubOutWithMock(gbpclient.Client, 'update_l3_policy')
+        self.mock_create = mock.patch(
+            'gbpclient.v2_0.client.Client.create_l3_policy')
+        self.mock_delete = mock.patch(
+            'gbpclient.v2_0.client.Client.delete_l3_policy')
+        self.mock_show = mock.patch(
+            'gbpclient.v2_0.client.Client.show_l3_policy')
+        self.mock_update = mock.patch(
+            'gbpclient.v2_0.client.Client.update_l3_policy')
+        self.mock_create.start()
+        self.mock_delete.start()
+        self.mock_show.start()
+        self.mock_update.start()
         self.stub_keystoneclient()
 
+    def tearDown(self):
+        self.mock_create.stop()
+        self.mock_delete.stop()
+        self.mock_show.stop()
+        self.mock_update.stop()
+        super(L3PolicyTest, self).tearDown()
+
     def create_l3_policy(self):
-        gbpclient.Client.create_l3_policy({
+        call_dict = {
             'l3_policy': {
                 "name": "test-l3-policy",
                 "description": "test L3 policy resource",
@@ -992,7 +1139,15 @@ class L3PolicyTest(HeatTestCase):
                 "external_segments": {"es1": "1.1.1.1"},
                 "shared": True
             }
-        }).AndReturn({'l3_policy': {'id': '5678'}})
+        }
+        tdict = {'l3_policy': {'id': '5678'}}
+        gbpclient.Client.create_l3_policy.return_value = tdict
+
+        ret_val = gbpclient.Client.create_l3_policy(call_dict)
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
+        self.assertEqual(tdict, ret_val)
 
         snippet = template_format.parse(l3_policy_template)
         self.stack = utils.parse_stack(snippet)
@@ -1002,13 +1157,11 @@ class L3PolicyTest(HeatTestCase):
 
     def test_create(self):
         rsrc = self.create_l3_policy()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         self.assertEqual((rsrc.CREATE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
 
     def test_create_failed(self):
-        gbpclient.Client.create_l3_policy({
+        call_dict = {
             'l3_policy': {
                 "name": "test-l3-policy",
                 "description": "test L3 policy resource",
@@ -1018,8 +1171,9 @@ class L3PolicyTest(HeatTestCase):
                 "external_segments": {"es1": "1.1.1.1"},
                 "shared": True
             }
-        }).AndRaise(grouppolicy.NeutronClientException())
-        self.m.ReplayAll()
+        }
+        exc = grouppolicy.NeutronClientException()
+        gbpclient.Client.create_l3_policy.side_effect = exc
 
         snippet = template_format.parse(l3_policy_template)
         self.stack = utils.parse_stack(snippet)
@@ -1034,37 +1188,42 @@ class L3PolicyTest(HeatTestCase):
             'An unknown exception occurred.',
             six.text_type(error))
         self.assertEqual((rsrc.CREATE, rsrc.FAILED), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
 
     def test_delete(self):
-        gbpclient.Client.delete_l3_policy('5678')
-        gbpclient.Client.show_l3_policy('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=404))
+        exc = grouppolicy.NeutronClientException(status_code=404)
+        gbpclient.Client.show_l3_policy.side_effect = exc
 
         rsrc = self.create_l3_policy()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         scheduler.TaskRunner(rsrc.delete)()
         self.assertEqual((rsrc.DELETE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_show = self.mock_show.get_original()[0]
+        _mocked_show.assert_has_calls([expected])
 
     def test_delete_already_gone(self):
-        gbpclient.Client.delete_l3_policy('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=404))
+        exc = grouppolicy.NeutronClientException(status_code=404)
+        gbpclient.Client.delete_l3_policy.side_effect = exc
 
         rsrc = self.create_l3_policy()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         scheduler.TaskRunner(rsrc.delete)()
         self.assertEqual((rsrc.DELETE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_delete = self.mock_delete.get_original()[0]
+        _mocked_delete.assert_has_calls([expected])
 
     def test_delete_failed(self):
-        gbpclient.Client.delete_l3_policy('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=400))
+        exc = grouppolicy.NeutronClientException(status_code=400)
+        gbpclient.Client.delete_l3_policy.side_effect = exc
 
         rsrc = self.create_l3_policy()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         error = self.assertRaises(exception.ResourceFailure,
                                   scheduler.TaskRunner(rsrc.delete))
@@ -1073,15 +1232,17 @@ class L3PolicyTest(HeatTestCase):
             'An unknown exception occurred.',
             six.text_type(error))
         self.assertEqual((rsrc.DELETE, rsrc.FAILED), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_delete = self.mock_delete.get_original()[0]
+        _mocked_delete.assert_has_calls([expected])
 
     def test_update(self):
         rsrc = self.create_l3_policy()
-        gbpclient.Client.update_l3_policy(
-            '5678', {'l3_policy': {'subnet_prefix_length': 28,
-                                   'external_segments':
-                                   {'es2': '2.1.1.1'}}})
-        self.m.ReplayAll()
+        call_dict = {
+            'l3_policy': {
+                'subnet_prefix_length': 28,
+                'external_segments': {'es2': '2.1.1.1'}}}
         scheduler.TaskRunner(rsrc.create)()
 
         update_template = copy.deepcopy(rsrc.t)
@@ -1091,25 +1252,38 @@ class L3PolicyTest(HeatTestCase):
              'allocated_address': '2.1.1.1'}]
         scheduler.TaskRunner(rsrc.update, update_template)()
 
-        self.m.VerifyAll()
+        expected = mock.call('5678', call_dict)
+        _mocked_update = self.mock_update.get_original()[0]
+        _mocked_update.assert_has_calls([expected])
 
 
 class PolicyClassifierTest(HeatTestCase):
 
     def setUp(self):
         super(PolicyClassifierTest, self).setUp()
-        self.m.StubOutWithMock(gbpclient.Client,
-                               'create_policy_classifier')
-        self.m.StubOutWithMock(gbpclient.Client,
-                               'delete_policy_classifier')
-        self.m.StubOutWithMock(gbpclient.Client,
-                               'show_policy_classifier')
-        self.m.StubOutWithMock(gbpclient.Client,
-                               'update_policy_classifier')
+        self.mock_create = mock.patch(
+            'gbpclient.v2_0.client.Client.create_policy_classifier')
+        self.mock_delete = mock.patch(
+            'gbpclient.v2_0.client.Client.delete_policy_classifier')
+        self.mock_show = mock.patch(
+            'gbpclient.v2_0.client.Client.show_policy_classifier')
+        self.mock_update = mock.patch(
+            'gbpclient.v2_0.client.Client.update_policy_classifier')
+        self.mock_create.start()
+        self.mock_delete.start()
+        self.mock_show.start()
+        self.mock_update.start()
         self.stub_keystoneclient()
 
+    def tearDown(self):
+        self.mock_create.stop()
+        self.mock_delete.stop()
+        self.mock_show.stop()
+        self.mock_update.stop()
+        super(PolicyClassifierTest, self).tearDown()
+
     def create_policy_classifier(self):
-        gbpclient.Client.create_policy_classifier({
+        call_dict = {
             'policy_classifier': {
                 "name": "test-policy-classifier",
                 "description": "test policy classifier resource",
@@ -1118,7 +1292,15 @@ class PolicyClassifierTest(HeatTestCase):
                 "direction": "bi",
                 "shared": True
             }
-        }).AndReturn({'policy_classifier': {'id': '5678'}})
+        }
+        tdict = {'policy_classifier': {'id': '5678'}}
+        gbpclient.Client.create_policy_classifier.return_value = tdict
+
+        ret_val = gbpclient.Client.create_policy_classifier(call_dict)
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
+        self.assertEqual(tdict, ret_val)
 
         snippet = template_format.parse(policy_classifier_template)
         self.stack = utils.parse_stack(snippet)
@@ -1129,13 +1311,11 @@ class PolicyClassifierTest(HeatTestCase):
 
     def test_create(self):
         rsrc = self.create_policy_classifier()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         self.assertEqual((rsrc.CREATE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
 
     def test_create_failed(self):
-        gbpclient.Client.create_policy_classifier({
+        call_dict = {
             'policy_classifier': {
                 "name": "test-policy-classifier",
                 "description": "test policy classifier resource",
@@ -1144,8 +1324,9 @@ class PolicyClassifierTest(HeatTestCase):
                 "direction": "bi",
                 "shared": True
             }
-        }).AndRaise(grouppolicy.NeutronClientException())
-        self.m.ReplayAll()
+        }
+        exc = grouppolicy.NeutronClientException()
+        gbpclient.Client.create_policy_classifier.side_effect = exc
 
         snippet = template_format.parse(policy_classifier_template)
         self.stack = utils.parse_stack(snippet)
@@ -1161,37 +1342,42 @@ class PolicyClassifierTest(HeatTestCase):
             'An unknown exception occurred.',
             six.text_type(error))
         self.assertEqual((rsrc.CREATE, rsrc.FAILED), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
 
     def test_delete(self):
-        gbpclient.Client.delete_policy_classifier('5678')
-        gbpclient.Client.show_policy_classifier('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=404))
+        exc = grouppolicy.NeutronClientException(status_code=404)
+        gbpclient.Client.show_policy_classifier.side_effect = exc
 
         rsrc = self.create_policy_classifier()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         scheduler.TaskRunner(rsrc.delete)()
         self.assertEqual((rsrc.DELETE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_show = self.mock_show.get_original()[0]
+        _mocked_show.assert_has_calls([expected])
 
     def test_delete_already_gone(self):
-        gbpclient.Client.delete_policy_classifier('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=404))
+        exc = grouppolicy.NeutronClientException(status_code=404)
+        gbpclient.Client.delete_policy_classifier.side_effect = exc
 
         rsrc = self.create_policy_classifier()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         scheduler.TaskRunner(rsrc.delete)()
         self.assertEqual((rsrc.DELETE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_delete = self.mock_delete.get_original()[0]
+        _mocked_delete.assert_has_calls([expected])
 
     def test_delete_failed(self):
-        gbpclient.Client.delete_policy_classifier('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=400))
+        exc = grouppolicy.NeutronClientException(status_code=400)
+        gbpclient.Client.delete_policy_classifier.side_effect = exc
 
         rsrc = self.create_policy_classifier()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         error = self.assertRaises(exception.ResourceFailure,
                                   scheduler.TaskRunner(rsrc.delete))
@@ -1200,34 +1386,52 @@ class PolicyClassifierTest(HeatTestCase):
             'An unknown exception occurred.',
             six.text_type(error))
         self.assertEqual((rsrc.DELETE, rsrc.FAILED), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_delete = self.mock_delete.get_original()[0]
+        _mocked_delete.assert_has_calls([expected])
 
     def test_update(self):
         rsrc = self.create_policy_classifier()
-        gbpclient.Client.update_policy_classifier(
-            '5678', {'policy_classifier': {'protocol': 'udp'}})
-        self.m.ReplayAll()
+        call_dict = {'policy_classifier': {'protocol': 'udp'}}
         scheduler.TaskRunner(rsrc.create)()
 
         update_template = copy.deepcopy(rsrc.t)
         update_template._properties['protocol'] = 'udp'
         scheduler.TaskRunner(rsrc.update, update_template)()
 
-        self.m.VerifyAll()
+        expected = mock.call('5678', call_dict)
+        _mocked_update = self.mock_update.get_original()[0]
+        _mocked_update.assert_has_calls([expected])
 
 
 class PolicyActionTest(HeatTestCase):
 
     def setUp(self):
         super(PolicyActionTest, self).setUp()
-        self.m.StubOutWithMock(gbpclient.Client, 'create_policy_action')
-        self.m.StubOutWithMock(gbpclient.Client, 'delete_policy_action')
-        self.m.StubOutWithMock(gbpclient.Client, 'show_policy_action')
-        self.m.StubOutWithMock(gbpclient.Client, 'update_policy_action')
+        self.mock_create = mock.patch(
+            'gbpclient.v2_0.client.Client.create_policy_action')
+        self.mock_delete = mock.patch(
+            'gbpclient.v2_0.client.Client.delete_policy_action')
+        self.mock_show = mock.patch(
+            'gbpclient.v2_0.client.Client.show_policy_action')
+        self.mock_update = mock.patch(
+            'gbpclient.v2_0.client.Client.update_policy_action')
+        self.mock_create.start()
+        self.mock_delete.start()
+        self.mock_show.start()
+        self.mock_update.start()
         self.stub_keystoneclient()
 
+    def tearDown(self):
+        self.mock_create.stop()
+        self.mock_delete.stop()
+        self.mock_show.stop()
+        self.mock_update.stop()
+        super(PolicyActionTest, self).tearDown()
+
     def create_policy_action(self):
-        gbpclient.Client.create_policy_action({
+        call_dict = {
             'policy_action': {
                 "name": "test-policy-action",
                 "description": "test policy action resource",
@@ -1235,7 +1439,15 @@ class PolicyActionTest(HeatTestCase):
                 "action_value": "7890",
                 "shared": True
             }
-        }).AndReturn({'policy_action': {'id': '5678'}})
+        }
+        tdict = {'policy_action': {'id': '5678'}}
+        gbpclient.Client.create_policy_action.return_value = tdict
+
+        ret_val = gbpclient.Client.create_policy_action(call_dict)
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
+        self.assertEqual(tdict, ret_val)
 
         snippet = template_format.parse(policy_action_template)
         self.stack = utils.parse_stack(snippet)
@@ -1245,13 +1457,11 @@ class PolicyActionTest(HeatTestCase):
 
     def test_create(self):
         rsrc = self.create_policy_action()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         self.assertEqual((rsrc.CREATE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
 
     def test_create_failed(self):
-        gbpclient.Client.create_policy_action({
+        call_dict = {
             'policy_action': {
                 "name": "test-policy-action",
                 "description": "test policy action resource",
@@ -1259,8 +1469,9 @@ class PolicyActionTest(HeatTestCase):
                 "action_value": "7890",
                 "shared": True
             }
-        }).AndRaise(grouppolicy.NeutronClientException())
-        self.m.ReplayAll()
+        }
+        exc = grouppolicy.NeutronClientException()
+        gbpclient.Client.create_policy_action.side_effect = exc
 
         snippet = template_format.parse(policy_action_template)
         self.stack = utils.parse_stack(snippet)
@@ -1275,37 +1486,42 @@ class PolicyActionTest(HeatTestCase):
             'An unknown exception occurred.',
             six.text_type(error))
         self.assertEqual((rsrc.CREATE, rsrc.FAILED), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
 
     def test_delete(self):
-        gbpclient.Client.delete_policy_action('5678')
-        gbpclient.Client.show_policy_action('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=404))
+        exc = grouppolicy.NeutronClientException(status_code=404)
+        gbpclient.Client.show_policy_action.side_effect = exc
 
         rsrc = self.create_policy_action()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         scheduler.TaskRunner(rsrc.delete)()
         self.assertEqual((rsrc.DELETE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_show = self.mock_show.get_original()[0]
+        _mocked_show.assert_has_calls([expected])
 
     def test_delete_already_gone(self):
-        gbpclient.Client.delete_policy_action('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=404))
+        exc = grouppolicy.NeutronClientException(status_code=404)
+        gbpclient.Client.delete_policy_action.side_effect = exc
 
         rsrc = self.create_policy_action()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         scheduler.TaskRunner(rsrc.delete)()
         self.assertEqual((rsrc.DELETE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_delete = self.mock_delete.get_original()[0]
+        _mocked_delete.assert_has_calls([expected])
 
     def test_delete_failed(self):
-        gbpclient.Client.delete_policy_action('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=400))
+        exc = grouppolicy.NeutronClientException(status_code=400)
+        gbpclient.Client.delete_policy_action.side_effect = exc
 
         rsrc = self.create_policy_action()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         error = self.assertRaises(exception.ResourceFailure,
                                   scheduler.TaskRunner(rsrc.delete))
@@ -1314,34 +1530,52 @@ class PolicyActionTest(HeatTestCase):
             'An unknown exception occurred.',
             six.text_type(error))
         self.assertEqual((rsrc.DELETE, rsrc.FAILED), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_delete = self.mock_delete.get_original()[0]
+        _mocked_delete.assert_has_calls([expected])
 
     def test_update(self):
         rsrc = self.create_policy_action()
-        gbpclient.Client.update_policy_action(
-            '5678', {'policy_action': {'action_type': 'allow'}})
-        self.m.ReplayAll()
+        call_dict = {'policy_action': {'action_type': 'allow'}}
         scheduler.TaskRunner(rsrc.create)()
 
         update_template = copy.deepcopy(rsrc.t)
         update_template._properties['action_type'] = 'allow'
         scheduler.TaskRunner(rsrc.update, update_template)()
 
-        self.m.VerifyAll()
+        expected = mock.call('5678', call_dict)
+        _mocked_update = self.mock_update.get_original()[0]
+        _mocked_update.assert_has_calls([expected])
 
 
 class PolicyRuleTest(HeatTestCase):
 
     def setUp(self):
         super(PolicyRuleTest, self).setUp()
-        self.m.StubOutWithMock(gbpclient.Client, 'create_policy_rule')
-        self.m.StubOutWithMock(gbpclient.Client, 'delete_policy_rule')
-        self.m.StubOutWithMock(gbpclient.Client, 'show_policy_rule')
-        self.m.StubOutWithMock(gbpclient.Client, 'update_policy_rule')
+        self.mock_create = mock.patch(
+            'gbpclient.v2_0.client.Client.create_policy_rule')
+        self.mock_delete = mock.patch(
+            'gbpclient.v2_0.client.Client.delete_policy_rule')
+        self.mock_show = mock.patch(
+            'gbpclient.v2_0.client.Client.show_policy_rule')
+        self.mock_update = mock.patch(
+            'gbpclient.v2_0.client.Client.update_policy_rule')
+        self.mock_create.start()
+        self.mock_delete.start()
+        self.mock_show.start()
+        self.mock_update.start()
         self.stub_keystoneclient()
 
+    def tearDown(self):
+        self.mock_create.stop()
+        self.mock_delete.stop()
+        self.mock_show.stop()
+        self.mock_update.stop()
+        super(PolicyRuleTest, self).tearDown()
+
     def create_policy_rule(self):
-        gbpclient.Client.create_policy_rule({
+        call_dict = {
             'policy_rule': {
                 "name": "test-policy-rule",
                 "description": "test policy rule resource",
@@ -1350,7 +1584,15 @@ class PolicyRuleTest(HeatTestCase):
                 "policy_actions": ['3456', '1234'],
                 "shared": True
             }
-        }).AndReturn({'policy_rule': {'id': '5678'}})
+        }
+        tdict = {'policy_rule': {'id': '5678'}}
+        gbpclient.Client.create_policy_rule.return_value = tdict
+
+        ret_val = gbpclient.Client.create_policy_rule(call_dict)
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
+        self.assertEqual(tdict, ret_val)
 
         snippet = template_format.parse(policy_rule_template)
         self.stack = utils.parse_stack(snippet)
@@ -1360,13 +1602,11 @@ class PolicyRuleTest(HeatTestCase):
 
     def test_create(self):
         rsrc = self.create_policy_rule()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         self.assertEqual((rsrc.CREATE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
 
     def test_create_failed(self):
-        gbpclient.Client.create_policy_rule({
+        call_dict = {
             'policy_rule': {
                 "name": "test-policy-rule",
                 "description": "test policy rule resource",
@@ -1375,8 +1615,9 @@ class PolicyRuleTest(HeatTestCase):
                 "policy_actions": ['3456', '1234'],
                 "shared": True
             }
-        }).AndRaise(grouppolicy.NeutronClientException())
-        self.m.ReplayAll()
+        }
+        exc = grouppolicy.NeutronClientException()
+        gbpclient.Client.create_policy_rule.side_effect = exc
 
         snippet = template_format.parse(policy_rule_template)
         self.stack = utils.parse_stack(snippet)
@@ -1391,37 +1632,42 @@ class PolicyRuleTest(HeatTestCase):
             'An unknown exception occurred.',
             six.text_type(error))
         self.assertEqual((rsrc.CREATE, rsrc.FAILED), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
 
     def test_delete(self):
-        gbpclient.Client.delete_policy_rule('5678')
-        gbpclient.Client.show_policy_rule('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=404))
+        exc = grouppolicy.NeutronClientException(status_code=404)
+        gbpclient.Client.show_policy_rule.side_effect = exc
 
         rsrc = self.create_policy_rule()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         scheduler.TaskRunner(rsrc.delete)()
         self.assertEqual((rsrc.DELETE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_show = self.mock_show.get_original()[0]
+        _mocked_show.assert_has_calls([expected])
 
     def test_delete_already_gone(self):
-        gbpclient.Client.delete_policy_rule('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=404))
+        exc = grouppolicy.NeutronClientException(status_code=404)
+        gbpclient.Client.delete_policy_rule.side_effect = exc
 
         rsrc = self.create_policy_rule()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         scheduler.TaskRunner(rsrc.delete)()
         self.assertEqual((rsrc.DELETE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_delete = self.mock_delete.get_original()[0]
+        _mocked_delete.assert_has_calls([expected])
 
     def test_delete_failed(self):
-        gbpclient.Client.delete_policy_rule('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=400))
+        exc = grouppolicy.NeutronClientException(status_code=400)
+        gbpclient.Client.delete_policy_rule.side_effect = exc
 
         rsrc = self.create_policy_rule()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         error = self.assertRaises(exception.ResourceFailure,
                                   scheduler.TaskRunner(rsrc.delete))
@@ -1430,34 +1676,52 @@ class PolicyRuleTest(HeatTestCase):
             'An unknown exception occurred.',
             six.text_type(error))
         self.assertEqual((rsrc.DELETE, rsrc.FAILED), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_delete = self.mock_delete.get_original()[0]
+        _mocked_delete.assert_has_calls([expected])
 
     def test_update(self):
         rsrc = self.create_policy_rule()
-        gbpclient.Client.update_policy_rule(
-            '5678', {'policy_rule': {'enabled': False}})
-        self.m.ReplayAll()
+        call_dict = {'policy_rule': {'enabled': False}}
         scheduler.TaskRunner(rsrc.create)()
 
         update_template = copy.deepcopy(rsrc.t)
         update_template._properties['enabled'] = False
         scheduler.TaskRunner(rsrc.update, update_template)()
 
-        self.m.VerifyAll()
+        expected = mock.call('5678', call_dict)
+        _mocked_update = self.mock_update.get_original()[0]
+        _mocked_update.assert_has_calls([expected])
 
 
 class PolicyRuleSetTest(HeatTestCase):
 
     def setUp(self):
         super(PolicyRuleSetTest, self).setUp()
-        self.m.StubOutWithMock(gbpclient.Client, 'create_policy_rule_set')
-        self.m.StubOutWithMock(gbpclient.Client, 'delete_policy_rule_set')
-        self.m.StubOutWithMock(gbpclient.Client, 'show_policy_rule_set')
-        self.m.StubOutWithMock(gbpclient.Client, 'update_policy_rule_set')
+        self.mock_create = mock.patch(
+            'gbpclient.v2_0.client.Client.create_policy_rule_set')
+        self.mock_delete = mock.patch(
+            'gbpclient.v2_0.client.Client.delete_policy_rule_set')
+        self.mock_show = mock.patch(
+            'gbpclient.v2_0.client.Client.show_policy_rule_set')
+        self.mock_update = mock.patch(
+            'gbpclient.v2_0.client.Client.update_policy_rule_set')
+        self.mock_create.start()
+        self.mock_delete.start()
+        self.mock_show.start()
+        self.mock_update.start()
         self.stub_keystoneclient()
 
+    def tearDown(self):
+        self.mock_create.stop()
+        self.mock_delete.stop()
+        self.mock_show.stop()
+        self.mock_update.stop()
+        super(PolicyRuleSetTest, self).tearDown()
+
     def create_policy_rule_set(self):
-        gbpclient.Client.create_policy_rule_set({
+        call_dict = {
             'policy_rule_set': {
                 "name": "test-policy-rule-set",
                 "description": "test policy rule set resource",
@@ -1466,7 +1730,15 @@ class PolicyRuleSetTest(HeatTestCase):
                 "policy_rules": ["2345", "6789"],
                 "shared": True
             }
-        }).AndReturn({'policy_rule_set': {'id': '5678'}})
+        }
+        tdict = {'policy_rule_set': {'id': '5678'}}
+        gbpclient.Client.create_policy_rule_set.return_value = tdict
+
+        ret_val = gbpclient.Client.create_policy_rule_set(call_dict)
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
+        self.assertEqual(tdict, ret_val)
 
         snippet = template_format.parse(policy_rule_set_template)
         self.stack = utils.parse_stack(snippet)
@@ -1476,13 +1748,11 @@ class PolicyRuleSetTest(HeatTestCase):
 
     def test_create(self):
         rsrc = self.create_policy_rule_set()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         self.assertEqual((rsrc.CREATE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
 
     def test_create_failed(self):
-        gbpclient.Client.create_policy_rule_set({
+        call_dict = {
             'policy_rule_set': {
                 "name": "test-policy-rule-set",
                 "description": "test policy rule set resource",
@@ -1491,8 +1761,9 @@ class PolicyRuleSetTest(HeatTestCase):
                 "policy_rules": ["2345", "6789"],
                 "shared": True
             }
-        }).AndRaise(grouppolicy.NeutronClientException())
-        self.m.ReplayAll()
+        }
+        exc = grouppolicy.NeutronClientException()
+        gbpclient.Client.create_policy_rule_set.side_effect = exc
 
         snippet = template_format.parse(policy_rule_set_template)
         self.stack = utils.parse_stack(snippet)
@@ -1507,37 +1778,42 @@ class PolicyRuleSetTest(HeatTestCase):
             'An unknown exception occurred.',
             six.text_type(error))
         self.assertEqual((rsrc.CREATE, rsrc.FAILED), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
 
     def test_delete(self):
-        gbpclient.Client.delete_policy_rule_set('5678')
-        gbpclient.Client.show_policy_rule_set('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=404))
+        exc = grouppolicy.NeutronClientException(status_code=404)
+        gbpclient.Client.show_policy_rule_set.side_effect = exc
 
         rsrc = self.create_policy_rule_set()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         scheduler.TaskRunner(rsrc.delete)()
         self.assertEqual((rsrc.DELETE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_show = self.mock_show.get_original()[0]
+        _mocked_show.assert_has_calls([expected])
 
     def test_delete_already_gone(self):
-        gbpclient.Client.delete_policy_rule_set('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=404))
+        exc = grouppolicy.NeutronClientException(status_code=404)
+        gbpclient.Client.delete_policy_rule_set.side_effect = exc
 
         rsrc = self.create_policy_rule_set()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         scheduler.TaskRunner(rsrc.delete)()
         self.assertEqual((rsrc.DELETE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_delete = self.mock_delete.get_original()[0]
+        _mocked_delete.assert_has_calls([expected])
 
     def test_delete_failed(self):
-        gbpclient.Client.delete_policy_rule_set('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=400))
+        exc = grouppolicy.NeutronClientException(status_code=400)
+        gbpclient.Client.delete_policy_rule_set.side_effect = exc
 
         rsrc = self.create_policy_rule_set()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         error = self.assertRaises(exception.ResourceFailure,
                                   scheduler.TaskRunner(rsrc.delete))
@@ -1546,38 +1822,52 @@ class PolicyRuleSetTest(HeatTestCase):
             'An unknown exception occurred.',
             six.text_type(error))
         self.assertEqual((rsrc.DELETE, rsrc.FAILED), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_delete = self.mock_delete.get_original()[0]
+        _mocked_delete.assert_has_calls([expected])
 
     def test_update(self):
         rsrc = self.create_policy_rule_set()
-        gbpclient.Client.update_policy_rule_set(
-            '5678', {'policy_rule_set': {'child_policy_rule_sets': ["1234"]}})
-        self.m.ReplayAll()
+        call_dict = {'policy_rule_set': {'child_policy_rule_sets': ["1234"]}}
         scheduler.TaskRunner(rsrc.create)()
 
         update_template = copy.deepcopy(rsrc.t)
         update_template._properties['child_policy_rule_sets'] = ["1234"]
         scheduler.TaskRunner(rsrc.update, update_template)()
 
-        self.m.VerifyAll()
+        expected = mock.call('5678', call_dict)
+        _mocked_update = self.mock_update.get_original()[0]
+        _mocked_update.assert_has_calls([expected])
 
 
 class NetworkServicePolicyTest(HeatTestCase):
 
     def setUp(self):
         super(NetworkServicePolicyTest, self).setUp()
-        self.m.StubOutWithMock(gbpclient.Client,
-                               'create_network_service_policy')
-        self.m.StubOutWithMock(gbpclient.Client,
-                               'delete_network_service_policy')
-        self.m.StubOutWithMock(gbpclient.Client,
-                               'show_network_service_policy')
-        self.m.StubOutWithMock(gbpclient.Client,
-                               'update_network_service_policy')
+        self.mock_create = mock.patch(
+            'gbpclient.v2_0.client.Client.create_network_service_policy')
+        self.mock_delete = mock.patch(
+            'gbpclient.v2_0.client.Client.delete_network_service_policy')
+        self.mock_show = mock.patch(
+            'gbpclient.v2_0.client.Client.show_network_service_policy')
+        self.mock_update = mock.patch(
+            'gbpclient.v2_0.client.Client.update_network_service_policy')
+        self.mock_create.start()
+        self.mock_delete.start()
+        self.mock_show.start()
+        self.mock_update.start()
         self.stub_keystoneclient()
 
+    def tearDown(self):
+        self.mock_create.stop()
+        self.mock_delete.stop()
+        self.mock_show.stop()
+        self.mock_update.stop()
+        super(NetworkServicePolicyTest, self).tearDown()
+
     def create_network_service_policy(self):
-        gbpclient.Client.create_network_service_policy({
+        call_dict = {
             'network_service_policy': {
                 "name": "test-nsp",
                 "description": "test NSP resource",
@@ -1586,7 +1876,15 @@ class NetworkServicePolicyTest(HeatTestCase):
                      'value': 'self_subnet'}],
                 "shared": True
             }
-        }).AndReturn({'network_service_policy': {'id': '5678'}})
+        }
+        tdict = {'network_service_policy': {'id': '5678'}}
+        gbpclient.Client.create_network_service_policy.return_value = tdict
+
+        ret_val = gbpclient.Client.create_network_service_policy(call_dict)
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
+        self.assertEqual(tdict, ret_val)
 
         snippet = template_format.parse(network_service_policy_template)
         self.stack = utils.parse_stack(snippet)
@@ -1597,13 +1895,11 @@ class NetworkServicePolicyTest(HeatTestCase):
 
     def test_create(self):
         rsrc = self.create_network_service_policy()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         self.assertEqual((rsrc.CREATE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
 
     def test_create_failed(self):
-        gbpclient.Client.create_network_service_policy({
+        call_dict = {
             'network_service_policy': {
                 "name": "test-nsp",
                 "description": "test NSP resource",
@@ -1612,8 +1908,9 @@ class NetworkServicePolicyTest(HeatTestCase):
                      'value': 'self_subnet'}],
                 "shared": True
             }
-        }).AndRaise(grouppolicy.NeutronClientException())
-        self.m.ReplayAll()
+        }
+        exc = grouppolicy.NeutronClientException()
+        gbpclient.Client.create_network_service_policy.side_effect = exc
 
         snippet = template_format.parse(network_service_policy_template)
         self.stack = utils.parse_stack(snippet)
@@ -1629,37 +1926,42 @@ class NetworkServicePolicyTest(HeatTestCase):
             'An unknown exception occurred.',
             six.text_type(error))
         self.assertEqual((rsrc.CREATE, rsrc.FAILED), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
 
     def test_delete(self):
-        gbpclient.Client.delete_network_service_policy('5678')
-        gbpclient.Client.show_network_service_policy('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=404))
+        exc = grouppolicy.NeutronClientException(status_code=404)
+        gbpclient.Client.show_network_service_policy.side_effect = exc
 
         rsrc = self.create_network_service_policy()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         scheduler.TaskRunner(rsrc.delete)()
         self.assertEqual((rsrc.DELETE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_show = self.mock_show.get_original()[0]
+        _mocked_show.assert_has_calls([expected])
 
     def test_delete_already_gone(self):
-        gbpclient.Client.delete_network_service_policy('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=404))
+        exc = grouppolicy.NeutronClientException(status_code=404)
+        gbpclient.Client.delete_network_service_policy.side_effect = exc
 
         rsrc = self.create_network_service_policy()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         scheduler.TaskRunner(rsrc.delete)()
         self.assertEqual((rsrc.DELETE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_delete = self.mock_delete.get_original()[0]
+        _mocked_delete.assert_has_calls([expected])
 
     def test_delete_failed(self):
-        gbpclient.Client.delete_network_service_policy('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=400))
+        exc = grouppolicy.NeutronClientException(status_code=400)
+        gbpclient.Client.delete_network_service_policy.side_effect = exc
 
         rsrc = self.create_network_service_policy()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         error = self.assertRaises(exception.ResourceFailure,
                                   scheduler.TaskRunner(rsrc.delete))
@@ -1668,14 +1970,16 @@ class NetworkServicePolicyTest(HeatTestCase):
             'An unknown exception occurred.',
             six.text_type(error))
         self.assertEqual((rsrc.DELETE, rsrc.FAILED), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_delete = self.mock_delete.get_original()[0]
+        _mocked_delete.assert_has_calls([expected])
 
     def test_update(self):
         rsrc = self.create_network_service_policy()
-        gbpclient.Client.update_network_service_policy(
-            '5678', {'network_service_policy':
-                     {'network_service_params': [{'name': 'vip-update'}]}})
-        self.m.ReplayAll()
+        call_dict = {
+            'network_service_policy':
+                {'network_service_params': [{'name': 'vip-update'}]}}
         scheduler.TaskRunner(rsrc.create)()
 
         update_template = copy.deepcopy(rsrc.t)
@@ -1683,25 +1987,38 @@ class NetworkServicePolicyTest(HeatTestCase):
             {'name': 'vip-update'}]
         scheduler.TaskRunner(rsrc.update, update_template)()
 
-        self.m.VerifyAll()
+        expected = mock.call('5678', call_dict)
+        _mocked_update = self.mock_update.get_original()[0]
+        _mocked_update.assert_has_calls([expected])
 
 
 class ExternalPolicyTest(HeatTestCase):
 
     def setUp(self):
         super(ExternalPolicyTest, self).setUp()
-        self.m.StubOutWithMock(gbpclient.Client,
-                               'create_external_policy')
-        self.m.StubOutWithMock(gbpclient.Client,
-                               'delete_external_policy')
-        self.m.StubOutWithMock(gbpclient.Client,
-                               'show_external_policy')
-        self.m.StubOutWithMock(gbpclient.Client,
-                               'update_external_policy')
+        self.mock_create = mock.patch(
+            'gbpclient.v2_0.client.Client.create_external_policy')
+        self.mock_delete = mock.patch(
+            'gbpclient.v2_0.client.Client.delete_external_policy')
+        self.mock_show = mock.patch(
+            'gbpclient.v2_0.client.Client.show_external_policy')
+        self.mock_update = mock.patch(
+            'gbpclient.v2_0.client.Client.update_external_policy')
+        self.mock_create.start()
+        self.mock_delete.start()
+        self.mock_show.start()
+        self.mock_update.start()
         self.stub_keystoneclient()
 
+    def tearDown(self):
+        self.mock_create.stop()
+        self.mock_delete.stop()
+        self.mock_show.stop()
+        self.mock_update.stop()
+        super(ExternalPolicyTest, self).tearDown()
+
     def create_external_policy(self):
-        gbpclient.Client.create_external_policy({
+        call_dict = {
             'external_policy': {
                 "name": "test-ep",
                 "description": "test EP resource",
@@ -1716,7 +2033,15 @@ class ExternalPolicyTest(HeatTestCase):
                 },
                 "shared": True
             }
-        }).AndReturn({'external_policy': {'id': '5678'}})
+        }
+        tdict = {'external_policy': {'id': '5678'}}
+        gbpclient.Client.create_external_policy.return_value = tdict
+
+        ret_val = gbpclient.Client.create_external_policy(call_dict)
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
+        self.assertEqual(tdict, ret_val)
 
         snippet = template_format.parse(external_policy_template)
         self.stack = utils.parse_stack(snippet)
@@ -1727,13 +2052,11 @@ class ExternalPolicyTest(HeatTestCase):
 
     def test_create(self):
         rsrc = self.create_external_policy()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         self.assertEqual((rsrc.CREATE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
 
     def test_create_failed(self):
-        gbpclient.Client.create_external_policy({
+        call_dict = {
             'external_policy': {
                 "name": "test-ep",
                 "description": "test EP resource",
@@ -1748,8 +2071,9 @@ class ExternalPolicyTest(HeatTestCase):
                 },
                 "shared": True
             }
-        }).AndRaise(grouppolicy.NeutronClientException())
-        self.m.ReplayAll()
+        }
+        exc = grouppolicy.NeutronClientException()
+        gbpclient.Client.create_external_policy.side_effect = exc
 
         snippet = template_format.parse(external_policy_template)
         self.stack = utils.parse_stack(snippet)
@@ -1765,37 +2089,42 @@ class ExternalPolicyTest(HeatTestCase):
             'An unknown exception occurred.',
             six.text_type(error))
         self.assertEqual((rsrc.CREATE, rsrc.FAILED), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
 
     def test_delete(self):
-        gbpclient.Client.delete_external_policy('5678')
-        gbpclient.Client.show_external_policy('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=404))
+        exc = grouppolicy.NeutronClientException(status_code=404)
+        gbpclient.Client.show_external_policy.side_effect = exc
 
         rsrc = self.create_external_policy()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         scheduler.TaskRunner(rsrc.delete)()
         self.assertEqual((rsrc.DELETE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_show = self.mock_show.get_original()[0]
+        _mocked_show.assert_has_calls([expected])
 
     def test_delete_already_gone(self):
-        gbpclient.Client.delete_external_policy('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=404))
+        exc = grouppolicy.NeutronClientException(status_code=404)
+        gbpclient.Client.delete_external_policy.side_effect = exc
 
         rsrc = self.create_external_policy()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         scheduler.TaskRunner(rsrc.delete)()
         self.assertEqual((rsrc.DELETE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_delete = self.mock_delete.get_original()[0]
+        _mocked_delete.assert_has_calls([expected])
 
     def test_delete_failed(self):
-        gbpclient.Client.delete_external_policy('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=400))
+        exc = grouppolicy.NeutronClientException(status_code=400)
+        gbpclient.Client.delete_external_policy.side_effect = exc
 
         rsrc = self.create_external_policy()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         error = self.assertRaises(exception.ResourceFailure,
                                   scheduler.TaskRunner(rsrc.delete))
@@ -1804,12 +2133,15 @@ class ExternalPolicyTest(HeatTestCase):
             'An unknown exception occurred.',
             six.text_type(error))
         self.assertEqual((rsrc.DELETE, rsrc.FAILED), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_delete = self.mock_delete.get_original()[0]
+        _mocked_delete.assert_has_calls([expected])
 
     def test_update(self):
         rsrc = self.create_external_policy()
-        gbpclient.Client.update_external_policy(
-            '5678', {'external_policy': {
+        call_dict = {
+            'external_policy': {
                 'external_segments': ['9876'],
                 'provided_policy_rule_sets': {
                     '2345': 'scope1',
@@ -1820,8 +2152,7 @@ class ExternalPolicyTest(HeatTestCase):
                     '9210': 'scope4',
                     '9900': 'scope6'
                 }
-            }})
-        self.m.ReplayAll()
+            }}
         scheduler.TaskRunner(rsrc.create)()
 
         update_template = copy.deepcopy(rsrc.t)
@@ -1845,25 +2176,38 @@ class ExternalPolicyTest(HeatTestCase):
         ]
         scheduler.TaskRunner(rsrc.update, update_template)()
 
-        self.m.VerifyAll()
+        expected = mock.call('5678', call_dict)
+        _mocked_update = self.mock_update.get_original()[0]
+        _mocked_update.assert_has_calls([expected])
 
 
 class ExternalSegmentTest(HeatTestCase):
 
     def setUp(self):
         super(ExternalSegmentTest, self).setUp()
-        self.m.StubOutWithMock(gbpclient.Client,
-                               'create_external_segment')
-        self.m.StubOutWithMock(gbpclient.Client,
-                               'delete_external_segment')
-        self.m.StubOutWithMock(gbpclient.Client,
-                               'show_external_segment')
-        self.m.StubOutWithMock(gbpclient.Client,
-                               'update_external_segment')
+        self.mock_create = mock.patch(
+            'gbpclient.v2_0.client.Client.create_external_segment')
+        self.mock_delete = mock.patch(
+            'gbpclient.v2_0.client.Client.delete_external_segment')
+        self.mock_show = mock.patch(
+            'gbpclient.v2_0.client.Client.show_external_segment')
+        self.mock_update = mock.patch(
+            'gbpclient.v2_0.client.Client.update_external_segment')
+        self.mock_create.start()
+        self.mock_delete.start()
+        self.mock_show.start()
+        self.mock_update.start()
         self.stub_keystoneclient()
 
+    def tearDown(self):
+        self.mock_create.stop()
+        self.mock_delete.stop()
+        self.mock_show.stop()
+        self.mock_update.stop()
+        super(ExternalSegmentTest, self).tearDown()
+
     def create_external_segment(self):
-        gbpclient.Client.create_external_segment({
+        call_dict = {
             'external_segment': {
                 "name": "test-es",
                 "description": "test ES resource",
@@ -1877,7 +2221,15 @@ class ExternalSegmentTest(HeatTestCase):
                 "port_address_translation": True,
                 "shared": True
             }
-        }).AndReturn({'external_segment': {'id': '5678'}})
+        }
+        tdict = {'external_segment': {'id': '5678'}}
+        gbpclient.Client.create_external_segment.return_value = tdict
+
+        ret_val = gbpclient.Client.create_external_segment(call_dict)
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
+        self.assertEqual(tdict, ret_val)
 
         snippet = template_format.parse(external_segment_template)
         self.stack = utils.parse_stack(snippet)
@@ -1888,13 +2240,11 @@ class ExternalSegmentTest(HeatTestCase):
 
     def test_create(self):
         rsrc = self.create_external_segment()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         self.assertEqual((rsrc.CREATE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
 
     def test_create_failed(self):
-        gbpclient.Client.create_external_segment({
+        call_dict = {
             'external_segment': {
                 "name": "test-es",
                 "description": "test ES resource",
@@ -1908,8 +2258,9 @@ class ExternalSegmentTest(HeatTestCase):
                 "port_address_translation": True,
                 "shared": True
             }
-        }).AndRaise(grouppolicy.NeutronClientException())
-        self.m.ReplayAll()
+        }
+        exc = grouppolicy.NeutronClientException()
+        gbpclient.Client.create_external_segment.side_effect = exc
 
         snippet = template_format.parse(external_segment_template)
         self.stack = utils.parse_stack(snippet)
@@ -1925,37 +2276,42 @@ class ExternalSegmentTest(HeatTestCase):
             'An unknown exception occurred.',
             six.text_type(error))
         self.assertEqual((rsrc.CREATE, rsrc.FAILED), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
 
     def test_delete(self):
-        gbpclient.Client.delete_external_segment('5678')
-        gbpclient.Client.show_external_segment('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=404))
+        exc = grouppolicy.NeutronClientException(status_code=404)
+        gbpclient.Client.show_external_segment.side_effect = exc
 
         rsrc = self.create_external_segment()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         scheduler.TaskRunner(rsrc.delete)()
         self.assertEqual((rsrc.DELETE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_show = self.mock_show.get_original()[0]
+        _mocked_show.assert_has_calls([expected])
 
     def test_delete_already_gone(self):
-        gbpclient.Client.delete_external_segment('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=404))
+        exc = grouppolicy.NeutronClientException(status_code=404)
+        gbpclient.Client.delete_external_segment.side_effect = exc
 
         rsrc = self.create_external_segment()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         scheduler.TaskRunner(rsrc.delete)()
         self.assertEqual((rsrc.DELETE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_delete = self.mock_delete.get_original()[0]
+        _mocked_delete.assert_has_calls([expected])
 
     def test_delete_failed(self):
-        gbpclient.Client.delete_external_segment('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=400))
+        exc = grouppolicy.NeutronClientException(status_code=400)
+        gbpclient.Client.delete_external_segment.side_effect = exc
 
         rsrc = self.create_external_segment()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         error = self.assertRaises(exception.ResourceFailure,
                                   scheduler.TaskRunner(rsrc.delete))
@@ -1964,39 +2320,52 @@ class ExternalSegmentTest(HeatTestCase):
             'An unknown exception occurred.',
             six.text_type(error))
         self.assertEqual((rsrc.DELETE, rsrc.FAILED), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_delete = self.mock_delete.get_original()[0]
+        _mocked_delete.assert_has_calls([expected])
 
     def test_update(self):
         rsrc = self.create_external_segment()
-        gbpclient.Client.update_external_segment(
-            '5678', {'external_segment':
-                     {"port_address_translation": False}})
-        self.m.ReplayAll()
+        call_dict = {'external_segment': {"port_address_translation": False}}
         scheduler.TaskRunner(rsrc.create)()
 
         update_template = copy.deepcopy(rsrc.t)
         update_template._properties['port_address_translation'] = False
         scheduler.TaskRunner(rsrc.update, update_template)()
 
-        self.m.VerifyAll()
+        expected = mock.call('5678', call_dict)
+        _mocked_update = self.mock_update.get_original()[0]
+        _mocked_update.assert_has_calls([expected])
 
 
 class NATPoolTest(HeatTestCase):
 
     def setUp(self):
         super(NATPoolTest, self).setUp()
-        self.m.StubOutWithMock(gbpclient.Client,
-                               'create_nat_pool')
-        self.m.StubOutWithMock(gbpclient.Client,
-                               'delete_nat_pool')
-        self.m.StubOutWithMock(gbpclient.Client,
-                               'show_nat_pool')
-        self.m.StubOutWithMock(gbpclient.Client,
-                               'update_nat_pool')
+        self.mock_create = mock.patch(
+            'gbpclient.v2_0.client.Client.create_nat_pool')
+        self.mock_delete = mock.patch(
+            'gbpclient.v2_0.client.Client.delete_nat_pool')
+        self.mock_show = mock.patch(
+            'gbpclient.v2_0.client.Client.show_nat_pool')
+        self.mock_update = mock.patch(
+            'gbpclient.v2_0.client.Client.update_nat_pool')
+        self.mock_create.start()
+        self.mock_delete.start()
+        self.mock_show.start()
+        self.mock_update.start()
         self.stub_keystoneclient()
 
+    def tearDown(self):
+        self.mock_create.stop()
+        self.mock_delete.stop()
+        self.mock_show.stop()
+        self.mock_update.stop()
+        super(NATPoolTest, self).tearDown()
+
     def create_nat_pool(self):
-        gbpclient.Client.create_nat_pool({
+        call_dict = {
             'nat_pool': {
                 "name": "test-nat-pool",
                 "description": "test NP resource",
@@ -2005,7 +2374,15 @@ class NATPoolTest(HeatTestCase):
                 "external_segment_id": '1234',
                 "shared": True
             }
-        }).AndReturn({'nat_pool': {'id': '5678'}})
+        }
+        tdict = {'nat_pool': {'id': '5678'}}
+        gbpclient.Client.create_nat_pool.return_value = tdict
+
+        ret_val = gbpclient.Client.create_nat_pool(call_dict)
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
+        self.assertEqual(tdict, ret_val)
 
         snippet = template_format.parse(nat_pool_template)
         self.stack = utils.parse_stack(snippet)
@@ -2016,13 +2393,11 @@ class NATPoolTest(HeatTestCase):
 
     def test_create(self):
         rsrc = self.create_nat_pool()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         self.assertEqual((rsrc.CREATE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
 
     def test_create_failed(self):
-        gbpclient.Client.create_nat_pool({
+        call_dict = {
             'nat_pool': {
                 "name": "test-nat-pool",
                 "description": "test NP resource",
@@ -2031,8 +2406,9 @@ class NATPoolTest(HeatTestCase):
                 "external_segment_id": '1234',
                 "shared": True
             }
-        }).AndRaise(grouppolicy.NeutronClientException())
-        self.m.ReplayAll()
+        }
+        exc = grouppolicy.NeutronClientException()
+        gbpclient.Client.create_nat_pool.side_effect = exc
 
         snippet = template_format.parse(nat_pool_template)
         self.stack = utils.parse_stack(snippet)
@@ -2048,37 +2424,42 @@ class NATPoolTest(HeatTestCase):
             'An unknown exception occurred.',
             six.text_type(error))
         self.assertEqual((rsrc.CREATE, rsrc.FAILED), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
 
     def test_delete(self):
-        gbpclient.Client.delete_nat_pool('5678')
-        gbpclient.Client.show_nat_pool('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=404))
+        exc = grouppolicy.NeutronClientException(status_code=404)
+        gbpclient.Client.show_nat_pool.side_effect = exc
 
         rsrc = self.create_nat_pool()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         scheduler.TaskRunner(rsrc.delete)()
         self.assertEqual((rsrc.DELETE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_show = self.mock_show.get_original()[0]
+        _mocked_show.assert_has_calls([expected])
 
     def test_delete_already_gone(self):
-        gbpclient.Client.delete_nat_pool('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=404))
+        exc = grouppolicy.NeutronClientException(status_code=404)
+        gbpclient.Client.delete_nat_pool.side_effect = exc
 
         rsrc = self.create_nat_pool()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         scheduler.TaskRunner(rsrc.delete)()
         self.assertEqual((rsrc.DELETE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_delete = self.mock_delete.get_original()[0]
+        _mocked_delete.assert_has_calls([expected])
 
     def test_delete_failed(self):
-        gbpclient.Client.delete_nat_pool('5678').AndRaise(
-            grouppolicy.NeutronClientException(status_code=400))
+        exc = grouppolicy.NeutronClientException(status_code=400)
+        gbpclient.Client.delete_nat_pool.side_effect = exc
 
         rsrc = self.create_nat_pool()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         error = self.assertRaises(exception.ResourceFailure,
                                   scheduler.TaskRunner(rsrc.delete))
@@ -2087,18 +2468,20 @@ class NATPoolTest(HeatTestCase):
             'An unknown exception occurred.',
             six.text_type(error))
         self.assertEqual((rsrc.DELETE, rsrc.FAILED), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_delete = self.mock_delete.get_original()[0]
+        _mocked_delete.assert_has_calls([expected])
 
     def test_update(self):
         rsrc = self.create_nat_pool()
-        gbpclient.Client.update_nat_pool(
-            '5678', {'nat_pool':
-                     {"external_segment_id": '9876'}})
-        self.m.ReplayAll()
+        call_dict = {'nat_pool': {"external_segment_id": '9876'}}
         scheduler.TaskRunner(rsrc.create)()
 
         update_template = copy.deepcopy(rsrc.t)
         update_template._properties['external_segment_id'] = '9876'
         scheduler.TaskRunner(rsrc.update, update_template)()
 
-        self.m.VerifyAll()
+        expected = mock.call('5678', call_dict)
+        _mocked_update = self.mock_update.get_original()[0]
+        _mocked_update.assert_has_calls([expected])

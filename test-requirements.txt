@@ -2,16 +2,15 @@
 # of appearance. Changing the order has an impact on the overall integration
 # process, which may cause wedges in the gate later.
 
--e git+https://opendev.org/openstack/heat.git@stable/queens#egg=heat
+-e git+https://opendev.org/openstack/heat.git@stable/rocky#egg=heat
 -e git+https://opendev.org/x/python-group-based-policy-client.git@master#egg=gbpclient
 # Hacking already pins down pep8, pyflakes and flake8
-hacking<0.11,>=0.10.0
-bandit>=1.1.0 # Apache-2.0
+hacking!=0.13.0,<0.14,>=0.12.0 # Apache-2.0
+bandit<1.6.0,>=1.1.0 # Apache-2.0
 coverage!=4.4,>=4.0 # Apache-2.0
 fixtures>=3.0.0 # Apache-2.0/BSD
 kombu!=4.0.2,>=4.0.0 # BSD
 mock>=2.0 # BSD
-mox3>=0.20.0  # Apache-2.0
 PyMySQL>=0.7.6 # MIT License
 openstackdocstheme>=1.18.1  # Apache-2.0
 os-api-ref>=1.4.0  # Apache-2.0

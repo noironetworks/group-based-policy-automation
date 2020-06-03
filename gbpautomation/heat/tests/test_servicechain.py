@@ -11,6 +11,7 @@
 #    under the License.
 
 import copy
+import mock
 import six
 
 from gbpautomation.heat.engine.resources import servicechain
@@ -89,14 +90,29 @@ class ServiceChainNodeTest(HeatTestCase):
 
     def setUp(self):
         super(ServiceChainNodeTest, self).setUp()
-        self.m.StubOutWithMock(gbpclient.Client, 'create_servicechain_node')
-        self.m.StubOutWithMock(gbpclient.Client, 'delete_servicechain_node')
-        self.m.StubOutWithMock(gbpclient.Client, 'show_servicechain_node')
-        self.m.StubOutWithMock(gbpclient.Client, 'update_servicechain_node')
+        self.mock_create = mock.patch(
+            'gbpclient.v2_0.client.Client.create_servicechain_node')
+        self.mock_delete = mock.patch(
+            'gbpclient.v2_0.client.Client.delete_servicechain_node')
+        self.mock_show = mock.patch(
+            'gbpclient.v2_0.client.Client.show_servicechain_node')
+        self.mock_update = mock.patch(
+            'gbpclient.v2_0.client.Client.update_servicechain_node')
+        self.mock_create.start()
+        self.mock_delete.start()
+        self.mock_show.start()
+        self.mock_update.start()
         self.stub_keystoneclient()
 
+    def tearDown(self):
+        self.mock_create.stop()
+        self.mock_delete.stop()
+        self.mock_show.stop()
+        self.mock_update.stop()
+        super(ServiceChainNodeTest, self).tearDown()
+
     def create_servicechain_node(self):
-        gbpclient.Client.create_servicechain_node({
+        call_dict = {
             'servicechain_node': {
                 "name": "test-sc-node",
                 "description": "test service chain node resource",
@@ -104,7 +120,15 @@ class ServiceChainNodeTest(HeatTestCase):
                 "shared": True,
                 "config": "{'name': 'sc_node_config'}"
             }
-        }).AndReturn({'servicechain_node': {'id': '5678'}})
+        }
+        tdict = {'servicechain_node': {'id': '5678'}}
+        gbpclient.Client.create_servicechain_node.return_value = tdict
+
+        ret_val = gbpclient.Client.create_servicechain_node(call_dict)
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
+        self.assertEqual(tdict, ret_val)
 
         snippet = template_format.parse(servicechain_node_template)
         self.stack = utils.parse_stack(snippet)
@@ -115,13 +139,11 @@ class ServiceChainNodeTest(HeatTestCase):
 
     def test_create(self):
         rsrc = self.create_servicechain_node()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         self.assertEqual((rsrc.CREATE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
 
     def test_create_failed(self):
-        gbpclient.Client.create_servicechain_node({
+        call_dict = {
             'servicechain_node': {
                 "name": "test-sc-node",
                 "description": "test service chain node resource",
@@ -129,8 +151,9 @@ class ServiceChainNodeTest(HeatTestCase):
                 "shared": True,
                 "config": "{'name': 'sc_node_config'}"
             }
-        }).AndRaise(servicechain.NeutronClientException())
-        self.m.ReplayAll()
+        }
+        exc = servicechain.NeutronClientException()
+        gbpclient.Client.create_servicechain_node.side_effect = exc
 
         snippet = template_format.parse(servicechain_node_template)
         self.stack = utils.parse_stack(snippet)
@@ -146,37 +169,42 @@ class ServiceChainNodeTest(HeatTestCase):
             'An unknown exception occurred.',
             six.text_type(error))
         self.assertEqual((rsrc.CREATE, rsrc.FAILED), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
 
     def test_delete(self):
-        gbpclient.Client.delete_servicechain_node('5678')
-        gbpclient.Client.show_servicechain_node('5678').AndRaise(
-            servicechain.NeutronClientException(status_code=404))
+        exc = servicechain.NeutronClientException(status_code=404)
+        gbpclient.Client.show_servicechain_node.side_effect = exc
 
         rsrc = self.create_servicechain_node()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         scheduler.TaskRunner(rsrc.delete)()
         self.assertEqual((rsrc.DELETE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_show = self.mock_show.get_original()[0]
+        _mocked_show.assert_has_calls([expected])
 
     def test_delete_already_gone(self):
-        gbpclient.Client.delete_servicechain_node('5678').AndRaise(
-            servicechain.NeutronClientException(status_code=404))
+        exc = servicechain.NeutronClientException(status_code=404)
+        gbpclient.Client.delete_servicechain_node.side_effect = exc
 
         rsrc = self.create_servicechain_node()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         scheduler.TaskRunner(rsrc.delete)()
         self.assertEqual((rsrc.DELETE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_delete = self.mock_delete.get_original()[0]
+        _mocked_delete.assert_has_calls([expected])
 
     def test_delete_failed(self):
-        gbpclient.Client.delete_servicechain_node('5678').AndRaise(
-            servicechain.NeutronClientException(status_code=400))
+        exc = servicechain.NeutronClientException(status_code=400)
+        gbpclient.Client.delete_servicechain_node.side_effect = exc
 
         rsrc = self.create_servicechain_node()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         error = self.assertRaises(exception.ResourceFailure,
                                   scheduler.TaskRunner(rsrc.delete))
@@ -185,41 +213,67 @@ class ServiceChainNodeTest(HeatTestCase):
             'An unknown exception occurred.',
             six.text_type(error))
         self.assertEqual((rsrc.DELETE, rsrc.FAILED), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_delete = self.mock_delete.get_original()[0]
+        _mocked_delete.assert_has_calls([expected])
 
     def test_update(self):
         rsrc = self.create_servicechain_node()
-        gbpclient.Client.update_servicechain_node(
-            '5678', {'servicechain_node': {'name': 'node_update'}})
-        self.m.ReplayAll()
+        call_dict = {'servicechain_node': {'name': 'node_update'}}
         scheduler.TaskRunner(rsrc.create)()
 
         update_template = copy.deepcopy(rsrc.t)
         update_template._properties['name'] = 'node_update'
         scheduler.TaskRunner(rsrc.update, update_template)()
 
-        self.m.VerifyAll()
+        expected = mock.call('5678', call_dict)
+        _mocked_update = self.mock_update.get_original()[0]
+        _mocked_update.assert_has_calls([expected])
 
 
 class ServiceChainSpecTest(HeatTestCase):
 
     def setUp(self):
         super(ServiceChainSpecTest, self).setUp()
-        self.m.StubOutWithMock(gbpclient.Client, 'create_servicechain_spec')
-        self.m.StubOutWithMock(gbpclient.Client, 'delete_servicechain_spec')
-        self.m.StubOutWithMock(gbpclient.Client, 'show_servicechain_spec')
-        self.m.StubOutWithMock(gbpclient.Client, 'update_servicechain_spec')
+        self.mock_create = mock.patch(
+            'gbpclient.v2_0.client.Client.create_servicechain_spec')
+        self.mock_delete = mock.patch(
+            'gbpclient.v2_0.client.Client.delete_servicechain_spec')
+        self.mock_show = mock.patch(
+            'gbpclient.v2_0.client.Client.show_servicechain_spec')
+        self.mock_update = mock.patch(
+            'gbpclient.v2_0.client.Client.update_servicechain_spec')
+        self.mock_create.start()
+        self.mock_delete.start()
+        self.mock_show.start()
+        self.mock_update.start()
         self.stub_keystoneclient()
 
+    def tearDown(self):
+        self.mock_create.stop()
+        self.mock_delete.stop()
+        self.mock_show.stop()
+        self.mock_update.stop()
+        super(ServiceChainSpecTest, self).tearDown()
+
     def create_servicechain_spec(self):
-        gbpclient.Client.create_servicechain_spec({
+        call_dict = {
             "servicechain_spec": {
                 "name": "test-sc-spec",
                 "description": "test service chain spec resource",
                 "shared": True,
                 "nodes": ["1234", "7890"]
             }
-        }).AndReturn({'servicechain_spec': {'id': '5678'}})
+        }
+        tdict = {'servicechain_spec': {'id': '5678'}}
+        gbpclient.Client.create_servicechain_spec.return_value = tdict
+
+        ret_val = gbpclient.Client.create_servicechain_spec(call_dict)
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
+        self.assertEqual(tdict, ret_val)
 
         snippet = template_format.parse(servicechain_spec_template)
         self.stack = utils.parse_stack(snippet)
@@ -230,21 +284,20 @@ class ServiceChainSpecTest(HeatTestCase):
 
     def test_create(self):
         rsrc = self.create_servicechain_spec()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         self.assertEqual((rsrc.CREATE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
 
     def test_create_failed(self):
-        gbpclient.Client.create_servicechain_spec({
+        call_dict = {
             'servicechain_spec': {
                 "name": "test-sc-spec",
                 "description": "test service chain spec resource",
                 "shared": True,
                 "nodes": ["1234", "7890"]
             }
-        }).AndRaise(servicechain.NeutronClientException())
-        self.m.ReplayAll()
+        }
+        exc = servicechain.NeutronClientException()
+        gbpclient.Client.create_servicechain_spec.side_effect = exc
 
         snippet = template_format.parse(servicechain_spec_template)
         self.stack = utils.parse_stack(snippet)
@@ -260,37 +313,42 @@ class ServiceChainSpecTest(HeatTestCase):
             'An unknown exception occurred.',
             six.text_type(error))
         self.assertEqual((rsrc.CREATE, rsrc.FAILED), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
 
     def test_delete(self):
-        gbpclient.Client.delete_servicechain_spec('5678')
-        gbpclient.Client.show_servicechain_spec('5678').AndRaise(
-            servicechain.NeutronClientException(status_code=404))
+        exc = servicechain.NeutronClientException(status_code=404)
+        gbpclient.Client.show_servicechain_spec.side_effect = exc
 
         rsrc = self.create_servicechain_spec()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         scheduler.TaskRunner(rsrc.delete)()
         self.assertEqual((rsrc.DELETE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_show = self.mock_show.get_original()[0]
+        _mocked_show.assert_has_calls([expected])
 
     def test_delete_already_gone(self):
-        gbpclient.Client.delete_servicechain_spec('5678').AndRaise(
-            servicechain.NeutronClientException(status_code=404))
+        exc = servicechain.NeutronClientException(status_code=404)
+        gbpclient.Client.delete_servicechain_spec.side_effect = exc
 
         rsrc = self.create_servicechain_spec()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         scheduler.TaskRunner(rsrc.delete)()
         self.assertEqual((rsrc.DELETE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_delete = self.mock_delete.get_original()[0]
+        _mocked_delete.assert_has_calls([expected])
 
     def test_delete_failed(self):
-        gbpclient.Client.delete_servicechain_spec('5678').AndRaise(
-            servicechain.NeutronClientException(status_code=400))
+        exc = servicechain.NeutronClientException(status_code=400)
+        gbpclient.Client.delete_servicechain_spec.side_effect = exc
 
         rsrc = self.create_servicechain_spec()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         error = self.assertRaises(exception.ResourceFailure,
                                   scheduler.TaskRunner(rsrc.delete))
@@ -299,34 +357,52 @@ class ServiceChainSpecTest(HeatTestCase):
             'An unknown exception occurred.',
             six.text_type(error))
         self.assertEqual((rsrc.DELETE, rsrc.FAILED), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_delete = self.mock_delete.get_original()[0]
+        _mocked_delete.assert_has_calls([expected])
 
     def test_update(self):
         rsrc = self.create_servicechain_spec()
-        gbpclient.Client.update_servicechain_spec(
-            '5678', {'servicechain_spec': {'name': 'spec_update'}})
-        self.m.ReplayAll()
+        call_dict = {'servicechain_spec': {'name': 'spec_update'}}
         scheduler.TaskRunner(rsrc.create)()
 
         update_template = copy.deepcopy(rsrc.t)
         update_template._properties['name'] = 'spec_update'
         scheduler.TaskRunner(rsrc.update, update_template)()
 
-        self.m.VerifyAll()
+        expected = mock.call('5678', call_dict)
+        _mocked_update = self.mock_update.get_original()[0]
+        _mocked_update.assert_has_calls([expected])
 
 
 class ServiceProfileTest(HeatTestCase):
 
     def setUp(self):
         super(ServiceProfileTest, self).setUp()
-        self.m.StubOutWithMock(gbpclient.Client, 'create_service_profile')
-        self.m.StubOutWithMock(gbpclient.Client, 'delete_service_profile')
-        self.m.StubOutWithMock(gbpclient.Client, 'show_service_profile')
-        self.m.StubOutWithMock(gbpclient.Client, 'update_service_profile')
+        self.mock_create = mock.patch(
+            'gbpclient.v2_0.client.Client.create_service_profile')
+        self.mock_delete = mock.patch(
+            'gbpclient.v2_0.client.Client.delete_service_profile')
+        self.mock_show = mock.patch(
+            'gbpclient.v2_0.client.Client.show_service_profile')
+        self.mock_update = mock.patch(
+            'gbpclient.v2_0.client.Client.update_service_profile')
+        self.mock_create.start()
+        self.mock_delete.start()
+        self.mock_show.start()
+        self.mock_update.start()
         self.stub_keystoneclient()
 
+    def tearDown(self):
+        self.mock_create.stop()
+        self.mock_delete.stop()
+        self.mock_show.stop()
+        self.mock_update.stop()
+        super(ServiceProfileTest, self).tearDown()
+
     def create_service_profile(self):
-        gbpclient.Client.create_service_profile({
+        call_dict = {
             'service_profile': {
                 "name": "test-svc-profile",
                 "description": "test service profile resource",
@@ -336,7 +412,15 @@ class ServiceProfileTest(HeatTestCase):
                 "service_flavor": "test flavor",
                 "shared": True
             }
-        }).AndReturn({'service_profile': {'id': '5678'}})
+        }
+        tdict = {'service_profile': {'id': '5678'}}
+        gbpclient.Client.create_service_profile.return_value = tdict
+
+        ret_val = gbpclient.Client.create_service_profile(call_dict)
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
+        self.assertEqual(tdict, ret_val)
 
         snippet = template_format.parse(service_profile_template)
         self.stack = utils.parse_stack(snippet)
@@ -346,13 +430,11 @@ class ServiceProfileTest(HeatTestCase):
 
     def test_create(self):
         rsrc = self.create_service_profile()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         self.assertEqual((rsrc.CREATE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
 
     def test_create_failed(self):
-        gbpclient.Client.create_service_profile({
+        call_dict = {
             'service_profile': {
                 "name": "test-svc-profile",
                 "description": "test service profile resource",
@@ -362,8 +444,9 @@ class ServiceProfileTest(HeatTestCase):
                 "service_flavor": "test flavor",
                 "shared": True
             }
-        }).AndRaise(servicechain.NeutronClientException())
-        self.m.ReplayAll()
+        }
+        exc = servicechain.NeutronClientException()
+        gbpclient.Client.create_service_profile.side_effect = exc
 
         snippet = template_format.parse(service_profile_template)
         self.stack = utils.parse_stack(snippet)
@@ -379,37 +462,42 @@ class ServiceProfileTest(HeatTestCase):
             'An unknown exception occurred.',
             six.text_type(error))
         self.assertEqual((rsrc.CREATE, rsrc.FAILED), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call(call_dict)
+        _mocked_create = self.mock_create.get_original()[0]
+        _mocked_create.assert_has_calls([expected])
 
     def test_delete(self):
-        gbpclient.Client.delete_service_profile('5678')
-        gbpclient.Client.show_service_profile('5678').AndRaise(
-            servicechain.NeutronClientException(status_code=404))
+        exc = servicechain.NeutronClientException(status_code=404)
+        gbpclient.Client.show_service_profile.side_effect = exc
 
         rsrc = self.create_service_profile()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         scheduler.TaskRunner(rsrc.delete)()
         self.assertEqual((rsrc.DELETE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_show = self.mock_show.get_original()[0]
+        _mocked_show.assert_has_calls([expected])
 
     def test_delete_already_gone(self):
-        gbpclient.Client.delete_service_profile('5678').AndRaise(
-            servicechain.NeutronClientException(status_code=404))
+        exc = servicechain.NeutronClientException(status_code=404)
+        gbpclient.Client.delete_service_profile.side_effect = exc
 
         rsrc = self.create_service_profile()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         scheduler.TaskRunner(rsrc.delete)()
         self.assertEqual((rsrc.DELETE, rsrc.COMPLETE), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_delete = self.mock_delete.get_original()[0]
+        _mocked_delete.assert_has_calls([expected])
 
     def test_delete_failed(self):
-        gbpclient.Client.delete_service_profile('5678').AndRaise(
-            servicechain.NeutronClientException(status_code=400))
+        exc = servicechain.NeutronClientException(status_code=400)
+        gbpclient.Client.delete_service_profile.side_effect = exc
 
         rsrc = self.create_service_profile()
-        self.m.ReplayAll()
         scheduler.TaskRunner(rsrc.create)()
         error = self.assertRaises(exception.ResourceFailure,
                                   scheduler.TaskRunner(rsrc.delete))
@@ -418,17 +506,20 @@ class ServiceProfileTest(HeatTestCase):
             'An unknown exception occurred.',
             six.text_type(error))
         self.assertEqual((rsrc.DELETE, rsrc.FAILED), rsrc.state)
-        self.m.VerifyAll()
+
+        expected = mock.call('5678')
+        _mocked_delete = self.mock_delete.get_original()[0]
+        _mocked_delete.assert_has_calls([expected])
 
     def test_update(self):
         rsrc = self.create_service_profile()
-        gbpclient.Client.update_service_profile(
-            '5678', {'service_profile': {'name': 'profile_update'}})
-        self.m.ReplayAll()
+        call_dict = {'service_profile': {'name': 'profile_update'}}
         scheduler.TaskRunner(rsrc.create)()
 
         update_template = copy.deepcopy(rsrc.t)
         update_template._properties['name'] = 'profile_update'
         scheduler.TaskRunner(rsrc.update, update_template)()
 
-        self.m.VerifyAll()
+        expected = mock.call('5678', call_dict)
+        _mocked_update = self.mock_update.get_original()[0]
+        _mocked_update.assert_has_calls([expected])
