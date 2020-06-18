@@ -4,7 +4,7 @@
    contain the root `toctree` directive.
 
 Welcome to group-based-policy-automation's documentation!
-========================================================
+=========================================================
 
 Contents:
 
