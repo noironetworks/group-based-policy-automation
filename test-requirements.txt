@@ -2,11 +2,11 @@
 # of appearance. Changing the order has an impact on the overall integration
 # process, which may cause wedges in the gate later.
 
--e git+https://opendev.org/openstack/heat.git@stable/stein#egg=heat
+-e git+https://opendev.org/openstack/heat.git@stable/train#egg=heat
 -e git+https://opendev.org/x/python-group-based-policy-client.git@master#egg=gbpclient
 # Hacking already pins down pep8, pyflakes and flake8
 hacking!=0.13.0,<0.14,>=0.12.0 # Apache-2.0
-bandit<1.6.0,>=1.1.0 # Apache-2.0
+bandit!=1.6.0,>=1.1.0 # Apache-2.0
 coverage!=4.4,>=4.0 # Apache-2.0
 flake8-import-order==0.12 # LGPLv3
 kombu!=4.0.2,>=4.0.0 # BSD
@@ -14,7 +14,7 @@ PyMySQL>=0.7.6 # MIT License
 os-testr>=1.0.0  # Apache-2.0
 oslotest>=3.2.0  # Apache-2.0
 qpid-python>=0.26;python_version=='2.7'  # Apache-2.0
-psycopg2>=2.6.2  # LGPL/ZPL
+psycopg2>=2.7 # LGPL/ZPL
 stestr>=2.0.0 # Apache-2.0
 testrepository>=0.0.18 # Apache-2.0/BSD
 testscenarios>=0.4 # Apache-2.0/BSD
