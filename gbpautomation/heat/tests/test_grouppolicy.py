@@ -12,7 +12,8 @@
 
 import copy
 
-import mock
+from unittest import mock
+
 import six
 
 from gbpautomation.heat.engine.resources import grouppolicy

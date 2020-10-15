@@ -14,34 +14,34 @@
         - openstack-tox-pep8:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/ussuri
-        - openstack-tox-py27:
-            required-projects:
-              - name: openstack/requirements
-                override-checkout: stable/ussuri
+                override-checkout: stable/victoria
         - openstack-tox-py36:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/ussuri
+                override-checkout: stable/victoria
         - openstack-tox-py37:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/ussuri
+                override-checkout: stable/victoria
+        - openstack-tox-py38:
+            required-projects:
+              - name: openstack/requirements
+                override-checkout: stable/victoria
     gate:
       jobs:
         - openstack-tox-pep8:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/ussuri
-        - openstack-tox-py27:
-            required-projects:
-              - name: openstack/requirements
-                override-checkout: stable/ussuri
+                override-checkout: stable/victoria
         - openstack-tox-py36:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/ussuri
+                override-checkout: stable/victoria
         - openstack-tox-py37:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/ussuri
+                override-checkout: stable/victoria
+        - openstack-tox-py38:
+            required-projects:
+              - name: openstack/requirements
+                override-checkout: stable/victoria
