@@ -164,7 +164,8 @@ l2_policy_template = '''
         "description": "test L2 policy resource",
         "l3_policy_id": "l3-policy-id",
         "shared": True,
-        "reuse_bd": "other-l2p"
+        "reuse_bd": "other-l2p",
+        "network_id": "network-id"
       }
     }
   }
@@ -993,6 +994,7 @@ class L2PolicyTest(HeatTestCase):
                 "l3_policy_id": "l3-policy-id",
                 "shared": True,
                 "reuse_bd": "other-l2p",
+                "network_id": "network-id",
             }
         }
         tdict = {'l2_policy': {'id': '5678'}}
@@ -1023,6 +1025,7 @@ class L2PolicyTest(HeatTestCase):
                 "l3_policy_id": "l3-policy-id",
                 "shared": True,
                 "reuse_bd": "other-l2p",
+                "network_id": "network-id",
             }
         }
         exc = grouppolicy.NeutronClientException()
