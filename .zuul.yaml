@@ -14,34 +14,34 @@
         - openstack-tox-pep8:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/wallaby
+                override-checkout: stable/xena
         - openstack-tox-py36:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/wallaby
+                override-checkout: stable/xena
         - openstack-tox-py37:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/wallaby
+                override-checkout: stable/xena
         - openstack-tox-py38:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/wallaby
+                override-checkout: stable/xena
     gate:
       jobs:
         - openstack-tox-pep8:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/wallaby
+                override-checkout: stable/xena
         - openstack-tox-py36:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/wallaby
+                override-checkout: stable/xena
         - openstack-tox-py37:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/wallaby
+                override-checkout: stable/xena
         - openstack-tox-py38:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/wallaby
+                override-checkout: stable/xena
