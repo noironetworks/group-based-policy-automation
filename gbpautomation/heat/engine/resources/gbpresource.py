@@ -43,11 +43,11 @@ class GBPResource(resource.Resource):
         Also ensures that shared and tenant_id is not specified
         in value_specs.
         '''
-        if 'value_specs' in properties.keys():
+        if 'value_specs' in list(properties.keys()):
             vs = properties.get('value_specs')
             banned_keys = set(['shared', 'tenant_id']).union(
-                properties.keys())
-            for k in banned_keys.intersection(vs.keys()):
+                list(properties.keys()))
+            for k in banned_keys.intersection(list(vs.keys())):
                 return '%s not allowed in value_specs' % k
 
     @staticmethod
@@ -74,13 +74,13 @@ class GBPResource(resource.Resource):
         Removes None values and value_specs, merges value_specs with the main
         values.
         '''
-        props = dict((k, v) for k, v in properties.items()
+        props = dict((k, v) for k, v in list(properties.items())
                      if v is not None and k != 'value_specs')
 
-        if 'name' in properties.keys():
+        if 'name' in list(properties.keys()):
             props.setdefault('name', name)
 
-        if 'value_specs' in properties.keys():
+        if 'value_specs' in list(properties.keys()):
             props.update(properties.get('value_specs'))
 
         return props
@@ -94,7 +94,7 @@ class GBPResource(resource.Resource):
         as for prepare_properties.
         '''
         p = definition.properties(self.properties_schema, self.context)
-        update_props = dict((k, v) for k, v in p.items()
+        update_props = dict((k, v) for k, v in list(p.items())
                             if p.props.get(k).schema.update_allowed)
 
         props = self.prepare_properties(

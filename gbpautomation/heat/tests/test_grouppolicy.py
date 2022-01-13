@@ -516,7 +516,7 @@ class PolicyTargetTest(HeatTestCase):
                 "description": "test policy target resource",
                 "port_id": "some-port-id",
                 'fixed_ips': [
-                    {'subnet_id': u'test-subnet', 'ip_address': u'10.0.3.21'}
+                    {'subnet_id': 'test-subnet', 'ip_address': '10.0.3.21'}
                 ],
             }
         }).AndReturn({'policy_target': {'id': '5678'}})
@@ -565,7 +565,7 @@ class PolicyTargetTest(HeatTestCase):
                 "description": "test policy target resource",
                 "port_id": "some-port-id",
                 'fixed_ips': [
-                    {'subnet_id': u'test-subnet', 'ip_address': u'10.0.3.21'}
+                    {'subnet_id': 'test-subnet', 'ip_address': '10.0.3.21'}
                 ],
             }
         }).AndRaise(grouppolicy.NeutronClientException())
