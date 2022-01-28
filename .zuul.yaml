@@ -1,7 +1,7 @@
 - project:
     name: x/group-based-policy-automation
     templates:
-      - openstack-python-jobs
+      - openstack-python3-xena-jobs
       - publish-to-pypi
     # REVISIT: In the jobs below, the required-projects clause is needed on
     # the master branch to select the correct version of the requirements
