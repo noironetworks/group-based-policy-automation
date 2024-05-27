@@ -12,28 +12,30 @@
     check:
       jobs:
         - openstack-tox-pep8:
+            voting: false
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/train
+                override-checkout: train-eol
         - openstack-tox-py27:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/train
+                override-checkout: train-eol
         - openstack-tox-py35:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/train
+                override-checkout: train-eol
     gate:
       jobs:
         - openstack-tox-pep8:
+            voting: false
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/train
+                override-checkout: train-eol
         - openstack-tox-py27:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/train
+                override-checkout: train-eol
         - openstack-tox-py35:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/train
+                override-checkout: train-eol
