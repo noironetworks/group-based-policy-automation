@@ -14,34 +14,42 @@
         - openstack-tox-pep8:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/wallaby
+                override-checkout: unmaintained/wallaby
+        - openstack-tox-py27:
+            required-projects:
+              - name: openstack/requirements
+                override-checkout: unmaintained/wallaby
         - openstack-tox-py36:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/wallaby
+                override-checkout: unmaintained/wallaby
         - openstack-tox-py37:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/wallaby
+                override-checkout: unmaintained/wallaby
         - openstack-tox-py38:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/wallaby
+                override-checkout: unmaintained/wallaby
     gate:
       jobs:
         - openstack-tox-pep8:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/wallaby
+                override-checkout: unmaintained/wallaby
+        - openstack-tox-py27:
+            required-projects:
+              - name: openstack/requirements
+                override-checkout: unmaintained/wallaby
         - openstack-tox-py36:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/wallaby
+                override-checkout: unmaintained/wallaby
         - openstack-tox-py37:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/wallaby
+                override-checkout: unmaintained/wallaby
         - openstack-tox-py38:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/wallaby
+                override-checkout: unmaintained/wallaby
