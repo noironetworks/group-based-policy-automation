@@ -2,7 +2,7 @@
 # of appearance. Changing the order has an impact on the overall integration
 # process, which may cause wedges in the gate later.
 
--e git+https://opendev.org/openstack/heat.git@stable/ussuri#egg=openstack-heat
+-e git+https://opendev.org/openstack/heat.git@ussuri-eol#egg=openstack-heat
 -e git+https://opendev.org/x/python-group-based-policy-client.git@stable/ussuri#egg=python-group-based-policy-client
 # Hacking already pins down pep8, pyflakes and flake8
 hacking!=0.13.0,<0.14,>=0.12.0;python_version=='2.7' # Apache-2.0
