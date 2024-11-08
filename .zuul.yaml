@@ -14,34 +14,54 @@
         - openstack-tox-pep8:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/2023.2
+                override-checkout: stable/2024.1
         - openstack-tox-py38:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/2023.2
+                override-checkout: stable/2024.1
         - openstack-tox-py39:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/2023.2
+                override-checkout: stable/2024.1
         - openstack-tox-py310:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/2023.2
+                override-checkout: stable/2024.1
+        - openstack-tox-py311:
+            voting: false
+            required-projects:
+              - name: openstack/requirements
+                override-checkout: stable/2024.1
+        - openstack-tox-py312:
+            voting: false
+            required-projects:
+              - name: openstack/requirements
+                override-checkout: stable/2024.1
     gate:
       jobs:
         - openstack-tox-pep8:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/2023.2
+                override-checkout: stable/2024.1
         - openstack-tox-py38:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/2023.2
+                override-checkout: stable/2024.1
         - openstack-tox-py39:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/2023.2
+                override-checkout: stable/2024.1
         - openstack-tox-py310:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/2023.2
+                override-checkout: stable/2024.1
+        - openstack-tox-py311:
+            voting: false
+            required-projects:
+              - name: openstack/requirements
+                override-checkout: stable/2024.1
+        - openstack-tox-py312:
+            voting: false
+            required-projects:
+              - name: openstack/requirements
+                override-checkout: stable/2024.1
