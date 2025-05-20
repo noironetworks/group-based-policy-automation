@@ -14,34 +14,34 @@
         - openstack-tox-pep8:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/2023.2
+                override-checkout: 2023.2-eol
         - openstack-tox-py38:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/2023.2
+                override-checkout: 2023.2-eol
         - openstack-tox-py39:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/2023.2
+                override-checkout: 2023.2-eol
         - openstack-tox-py310:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/2023.2
+                override-checkout: 2023.2-eol
     gate:
       jobs:
         - openstack-tox-pep8:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/2023.2
+                override-checkout: 2023.2-eol
         - openstack-tox-py38:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/2023.2
+                override-checkout: 2023.2-eol
         - openstack-tox-py39:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/2023.2
+                override-checkout: 2023.2-eol
         - openstack-tox-py310:
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/2023.2
+                override-checkout: 2023.2-eol
