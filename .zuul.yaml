@@ -28,12 +28,12 @@
               - name: openstack/requirements
                 override-checkout: stable/2024.1
         - openstack-tox-py311:
-            voting: false
+            nodeset: ubuntu-jammy
             required-projects:
               - name: openstack/requirements
                 override-checkout: stable/2024.1
         - openstack-tox-py312:
-            voting: false
+            nodeset: ubuntu-noble
             required-projects:
               - name: openstack/requirements
                 override-checkout: stable/2024.1
@@ -56,12 +56,12 @@
               - name: openstack/requirements
                 override-checkout: stable/2024.1
         - openstack-tox-py311:
-            voting: false
+            nodeset: ubuntu-jammy
             required-projects:
               - name: openstack/requirements
                 override-checkout: stable/2024.1
         - openstack-tox-py312:
-            voting: false
+            nodeset: ubuntu-noble
             required-projects:
               - name: openstack/requirements
                 override-checkout: stable/2024.1
