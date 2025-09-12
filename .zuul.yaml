@@ -34,7 +34,6 @@
                 override-checkout: stable/2024.2
         - openstack-tox-py312:
             nodeset: ubuntu-noble
-            voting: false
             required-projects:
               - name: openstack/requirements
                 override-checkout: stable/2024.2
@@ -63,7 +62,6 @@
                 override-checkout: stable/2024.2
         - openstack-tox-py312:
             nodeset: ubuntu-noble
-            voting: false
             required-projects:
               - name: openstack/requirements
                 override-checkout: stable/2024.2
