@@ -1,0 +1,3 @@
+# Needed to build psycopg2 from source in CI
+libpq-dev [platform:dpkg]
+postgresql-devel [platform:rpm]
