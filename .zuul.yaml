@@ -16,14 +16,17 @@
               - name: openstack/requirements
                 override-checkout: unmaintained/wallaby
         - openstack-tox-py27:
+            ansible-version: 9
             required-projects:
               - name: openstack/requirements
                 override-checkout: unmaintained/wallaby
         - openstack-tox-py36:
+            ansible-version: 9
             required-projects:
               - name: openstack/requirements
                 override-checkout: unmaintained/wallaby
         - openstack-tox-py37:
+            ansible-version: 9
             required-projects:
               - name: openstack/requirements
                 override-checkout: unmaintained/wallaby
@@ -38,14 +41,17 @@
               - name: openstack/requirements
                 override-checkout: unmaintained/wallaby
         - openstack-tox-py27:
+            ansible-version: 9
             required-projects:
               - name: openstack/requirements
                 override-checkout: unmaintained/wallaby
         - openstack-tox-py36:
+            ansible-version: 9
             required-projects:
               - name: openstack/requirements
                 override-checkout: unmaintained/wallaby
         - openstack-tox-py37:
+            ansible-version: 9
             required-projects:
               - name: openstack/requirements
                 override-checkout: unmaintained/wallaby
