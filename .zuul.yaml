@@ -16,27 +16,28 @@
             ansible-version: 9
             required-projects:
               - name: openstack/requirements
-                override-checkout: unmaintained/victoria
+                override-checkout: victoria-eol
         - openstack-tox-py27:
             ansible-version: 9
+            voting: False
             required-projects:
               - name: openstack/requirements
-                override-checkout: unmaintained/victoria
+                override-checkout: victoria-eol
         - openstack-tox-py36:
             ansible-version: 9
             required-projects:
               - name: openstack/requirements
-                override-checkout: unmaintained/victoria
+                override-checkout: victoria-eol
         - openstack-tox-py37:
             ansible-version: 9
             required-projects:
               - name: openstack/requirements
-                override-checkout: unmaintained/victoria
+                override-checkout: victoria-eol
         - openstack-tox-py38:
             voting: false
             required-projects:
               - name: openstack/requirements
-                override-checkout: unmaintained/victoria
+                override-checkout: victoria-eol
     gate:
       jobs:
         - openstack-tox-pep8:
@@ -44,24 +45,25 @@
             ansible-version: 9
             required-projects:
               - name: openstack/requirements
-                override-checkout: unmaintained/victoria
+                override-checkout: victoria-eol
         - openstack-tox-py27:
             ansible-version: 9
+            voting: False
             required-projects:
               - name: openstack/requirements
-                override-checkout: unmaintained/victoria
+                override-checkout: victoria-eol
         - openstack-tox-py36:
             ansible-version: 9
             required-projects:
               - name: openstack/requirements
-                override-checkout: unmaintained/victoria
+                override-checkout: victoria-eol
         - openstack-tox-py37:
             ansible-version: 9
             required-projects:
               - name: openstack/requirements
-                override-checkout: unmaintained/victoria
+                override-checkout: victoria-eol
         - openstack-tox-py38:
             voting: false
             required-projects:
               - name: openstack/requirements
-                override-checkout: unmaintained/victoria
+                override-checkout: victoria-eol
