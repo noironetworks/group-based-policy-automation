@@ -14,38 +14,38 @@
         - openstack-tox-pep8:
             required-projects:
               - name: openstack/requirements
-                override-checkout: unmaintained/xena
+                override-checkout: xena-eol
         - openstack-tox-py36:
             ansible-version: 9
             required-projects:
               - name: openstack/requirements
-                override-checkout: unmaintained/xena
+                override-checkout: xena-eol
         - openstack-tox-py37:
             ansible-version: 9
             required-projects:
               - name: openstack/requirements
-                override-checkout: unmaintained/xena
+                override-checkout: xena-eol
         - openstack-tox-py38:
             required-projects:
               - name: openstack/requirements
-                override-checkout: unmaintained/xena
+                override-checkout: xena-eol
     gate:
       jobs:
         - openstack-tox-pep8:
             required-projects:
               - name: openstack/requirements
-                override-checkout: unmaintained/xena
+                override-checkout: xena-eol
         - openstack-tox-py36:
             ansible-version: 9
             required-projects:
               - name: openstack/requirements
-                override-checkout: unmaintained/xena
+                override-checkout: xena-eol
         - openstack-tox-py37:
             ansible-version: 9
             required-projects:
               - name: openstack/requirements
-                override-checkout: unmaintained/xena
+                override-checkout: xena-eol
         - openstack-tox-py38:
             required-projects:
               - name: openstack/requirements
-                override-checkout: unmaintained/xena
+                override-checkout: xena-eol
