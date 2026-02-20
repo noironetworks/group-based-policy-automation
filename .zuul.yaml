@@ -21,17 +21,11 @@
             required-projects:
               - name: openstack/requirements
                 override-checkout: wallaby-eol
-        - openstack-tox-py36:
-            ansible-version: 9
-            required-projects:
-              - name: openstack/requirements
-                override-checkout: wallaby-eol
-        - openstack-tox-py37:
-            ansible-version: 9
-            required-projects:
-              - name: openstack/requirements
-                override-checkout: wallaby-eol
         - openstack-tox-py38:
+            required-projects:
+              - name: openstack/requirements
+                override-checkout: wallaby-eol
+        - openstack-tox-py39:
             required-projects:
               - name: openstack/requirements
                 override-checkout: wallaby-eol
@@ -47,17 +41,11 @@
             required-projects:
               - name: openstack/requirements
                 override-checkout: wallaby-eol
-        - openstack-tox-py36:
-            ansible-version: 9
-            required-projects:
-              - name: openstack/requirements
-                override-checkout: wallaby-eol
-        - openstack-tox-py37:
-            ansible-version: 9
-            required-projects:
-              - name: openstack/requirements
-                override-checkout: wallaby-eol
         - openstack-tox-py38:
+            required-projects:
+              - name: openstack/requirements
+                override-checkout: wallaby-eol
+        - openstack-tox-py39:
             required-projects:
               - name: openstack/requirements
                 override-checkout: wallaby-eol
