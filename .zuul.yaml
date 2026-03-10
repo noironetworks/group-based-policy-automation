@@ -32,7 +32,6 @@
               - name: openstack/requirements
                 override-checkout: stable/2025.2
         - openstack-tox-py313:
-            nodeset: ubuntu-noble
             required-projects:
               - name: openstack/requirements
                 override-checkout: stable/2025.2
@@ -59,7 +58,6 @@
               - name: openstack/requirements
                 override-checkout: stable/2025.2
         - openstack-tox-py313:
-            nodeset: ubuntu-noble
             required-projects:
               - name: openstack/requirements
                 override-checkout: stable/2025.2
