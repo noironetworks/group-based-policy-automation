@@ -15,53 +15,53 @@
             nodeset: ubuntu-jammy
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/2024.2
+                override-checkout: 2024.2-eol
         - openstack-tox-py39:
             nodeset: ubuntu-focal
             voting: false
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/2024.2
+                override-checkout: 2024.2-eol
         - openstack-tox-py310:
             nodeset: ubuntu-jammy
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/2024.2
+                override-checkout: 2024.2-eol
         - openstack-tox-py311:
             nodeset: ubuntu-jammy
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/2024.2
+                override-checkout: 2024.2-eol
         - openstack-tox-py312:
             nodeset: ubuntu-noble
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/2024.2
+                override-checkout: 2024.2-eol
     gate:
       jobs:
         - openstack-tox-pep8:
             nodeset: ubuntu-jammy
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/2024.2
+                override-checkout: 2024.2-eol
         - openstack-tox-py39:
             nodeset: ubuntu-focal
             voting: false
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/2024.2
+                override-checkout: 2024.2-eol
         - openstack-tox-py310:
             nodeset: ubuntu-jammy
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/2024.2
+                override-checkout: 2024.2-eol
         - openstack-tox-py311:
             nodeset: ubuntu-jammy
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/2024.2
+                override-checkout: 2024.2-eol
         - openstack-tox-py312:
             nodeset: ubuntu-noble
             required-projects:
               - name: openstack/requirements
-                override-checkout: stable/2024.2
+                override-checkout: 2024.2-eol
