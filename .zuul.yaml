@@ -35,6 +35,12 @@
             required-projects:
               - name: openstack/requirements
                 override-checkout: stable/2026.1
+        - openstack-tox-cover:
+            nodeset: ubuntu-jammy
+            timeout: 6000
+            required-projects:
+              - name: openstack/requirements
+                override-checkout: stable/2026.1
     gate:
       jobs:
         - openstack-tox-pep8:
